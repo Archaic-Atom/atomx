@@ -1,7 +1,9 @@
 """Stable columns, marquee and multiline editing. 固定列、目录滚动和多行编辑。"""
 import tempfile
+import os
 import time
 import unittest
+from unittest.mock import patch
 
 from rich.cells import cell_len
 from textual.document._document import Selection
@@ -54,6 +56,39 @@ class ColumnTests(unittest.TestCase):
 
 
 class ComposerLayoutTests(unittest.IsolatedAsyncioTestCase):
+    async def test_home_spacer_and_rows_recover_after_hidden_resize(self):
+        with patch.dict(os.environ):
+            os.environ.pop("NO_COLOR", None)
+            app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
+        async with app.run_test(size=(100, 32)) as pilot:
+            await pilot.pause(.2)
+            options = app.query_one("#sessions")
+            for width in (160, 60, 120):
+                await app.open_session("demo-dashboard")
+                await pilot.pause(.1)
+                await pilot.resize_terminal(width, 32)
+                app.paint_sessions()  # Simulate an update while home is hidden. 模拟后台更新。
+                app.show_home()
+                await pilot.pause(.2)
+                spacer = app.query_one("#session-columns")
+                self.assertEqual(spacer.region.height, 1)
+                self.assertEqual(str(spacer.content), "")
+                for index in options.selectable_indices():
+                    option = options.get_option_at_index(index)
+                    self.assertEqual(cell_len(option.prompt.plain), options.size.width - 3)
+                    self.assertIn(app.store.get(option.id).title[:3], option.prompt.plain)
+                self.assertTrue(options.has_focus)
+                self.assertEqual(options.get_option_at_index(options.highlighted).id, "demo-dashboard")
+            # Hovering an unselected row must not add an opaque strip. 悬停不涂黑条。
+            index = options.get_option_index("demo-readme")
+            y = options._index_to_line[index] - int(options.scroll_y)
+            await pilot.hover("#sessions", offset=(3, y))
+            await pilot.pause(.1)
+            self.assertEqual(options._mouse_hovering_over, index)
+            for segment in options.render_line(y):
+                background = segment.style.bgcolor if segment.style else None
+                self.assertTrue(background is None or background.is_default)
+
     async def test_newline_places_cursor_on_next_line_and_input_grows(self):
         app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
         async with app.run_test(size=(90, 32)) as pilot:

@@ -67,6 +67,11 @@ def palette_for(preferences: dict) -> Palette:
     return replace(palette, accent=colors[0 if palette.dark else 1]) if colors else palette
 
 
+def user_message_style(palette: Palette) -> str:
+    """Use a readable neutral gray for user messages. 用户发言统一灰底并保证对比度。"""
+    return "bold #e6e6e6 on #373737" if palette.dark else "bold #292d30 on #dcdcd9"
+
+
 def brand(palette: Palette, compact: bool, home: bool) -> Text:
     """Ink sampled from assets/logo-dark.png; no image protocol required.
 

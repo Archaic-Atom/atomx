@@ -12,6 +12,7 @@ Input:focus { border: tall $arc-accent; }
 OptionList { background: $arc-background; border: none; padding: 0; }
 OptionList:focus { background-tint: transparent; }
 OptionList > .option-list--option { padding: 0 1; }
+OptionList > .option-list--option-hover { background: $arc-background; }
 OptionList > .option-list--option-highlighted { background: $arc-selection; color: $arc-foreground; text-style: none; }
 OptionList:focus > .option-list--option-highlighted { background: $arc-selection; color: $arc-foreground; }
 #sessions { height: 1fr; }

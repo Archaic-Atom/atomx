@@ -9,7 +9,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Select, Static, Switch
 
-from .appearance import ACCENTS, PALETTES, palette_for
+from .appearance import ACCENTS, PALETTES, palette_for, user_message_style
 
 
 class DirectoryInput(Input):
@@ -113,7 +113,7 @@ class Settings(ModalScreen[dict | None]):
         self.app.apply_appearance(self.values)
         palette = self.app.palette
         text = Text(tr('  正文  '), style=palette.foreground)
-        text.append(tr('  你的消息  '), "bold " + palette.foreground)
+        text.append(tr('  你的消息  '), user_message_style(palette))
         text.append(tr('  强调色  '), palette.accent)
         self.query_one("#palette-preview", Static).update(text)
 

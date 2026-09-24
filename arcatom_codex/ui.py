@@ -11,6 +11,8 @@ import uuid
 from rich.console import Group
 from rich.markdown import Markdown as RichMarkdown
 from rich.padding import Padding
+from rich.segment import Segment
+from rich.style import Style
 from rich.text import Text
 from textual import events, on
 from textual.app import App, ComposeResult
@@ -29,11 +31,23 @@ from .personal import bridge_instructions, discover_skills, turn_context
 from .commands import matches, BY_NAME
 from .command_actions import CommandActions
 from .preferences import read_preferences, approval_defaults
-from .appearance import palette_for, brand
+from .appearance import palette_for, brand, user_message_style
 from .settings import Settings
 from .clipboard import copy_text, read_clipboard, import_image
 from .pickers import Prompt
-from .home_list import section_heading, session_row, session_header
+from .home_list import section_heading, session_row
+
+
+class MessageMarkdown(RichMarkdown):
+    """Keep syntax colors without opaque code backgrounds. 代码保留彩色，去掉黑底。"""
+
+    def __rich_console__(self, console, options):
+        background = Style(bgcolor="default")
+        for part in super().__rich_console__(console, options):
+            segments = (part,) if isinstance(part, Segment) else console.render(part, options)
+            for segment in segments:
+                yield Segment(segment.text, (segment.style or Style()) + background,
+                              segment.control)
 
 
 def command_summary(command: str | None) -> str:
@@ -56,11 +70,11 @@ def pretty(item: dict, code_theme="monokai", palette=None):
     kind = item.get("type", "")
     if kind == "userMessage":
         text = "\n".join(c.get("text", tr('[图片或附件]')) for c in item.get("content", []))
-        return Group(Padding(Text(tr('❯ 你\n') + clean(text), style="bold " + palette.foreground),
-                             (0, 1)), Text(""))
+        return Group(Padding(Text(tr('❯ 你\n') + clean(text)),
+                             (0, 1), style=user_message_style(palette)), Text(""))
     if kind in ("agentMessage", "plan"):
         return Group(Text("✦ Codex" if kind == "agentMessage" else tr('◇ 计划'), style=palette.accent),
-                     RichMarkdown(clean(item.get("text")), code_theme=code_theme), Text(""))
+                     MessageMarkdown(clean(item.get("text")), code_theme=code_theme), Text(""))
     if kind == "commandExecution":
         status = item.get("status", "inProgress")
         mark = "●" if status == "inProgress" else "✓" if status == "completed" else "!"
@@ -225,6 +239,17 @@ class HomeButton(Button, can_focus=False):
 
 class SessionList(OptionList):
     """The highlighted row belongs only to the focused list."""
+
+    def on_resize(self):
+        # A hidden list has zero width; rebuild columns after layout. 布局后重建列宽。
+        self.call_after_refresh(self.refresh_columns)
+
+    def on_show(self):
+        self.call_after_refresh(self.refresh_columns)
+
+    def refresh_columns(self):
+        if self.is_mounted and self.is_on_screen and self.app.current is None:
+            self.app.paint_sessions()
 
     def selectable_indices(self):
         return [i for i in range(self.option_count) if not self.get_option_at_index(i).disabled]
@@ -987,6 +1012,8 @@ class ArcatomApp(CommandActions, App):
 
     def redraw_directory(self, tid, step):
         options = self.query_one("#sessions", OptionList)
+        if self.current is not None or not options.is_on_screen or options.size.width < 7:
+            return
         if tid and tid in self.store.sessions:
             try:
                 option = options.get_option(tid)
@@ -1063,7 +1090,6 @@ class ArcatomApp(CommandActions, App):
             selected = options.get_option_at_index(options.highlighted).id
         options.clear_options()
         width = max(7, options.size.width - 3)
-        self.query_one("#session-columns", Static).update(session_header(width, self.palette))
         for section, label, color in (
                 ("waiting", tr('等待你确认 / 输入'), self.palette.warning),
                 ("working", tr('正在工作'), self.palette.success),

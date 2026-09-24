@@ -38,12 +38,6 @@ def columns(values: list[Text], width: int) -> Text:
     return row
 
 
-def session_header(width: int, palette: Palette) -> Text:
-    """Use the same geometry for labels and data. 表头与数据共用列宽。"""
-    return columns([Text(tr(label), palette.muted) for label in
-                    ("标题", "摘要", "目录", "最后处理")], width)
-
-
 def directory_window(directory: str, width: int, step: int) -> str:
     """Scroll from start to end with a pause, without splitting wide glyphs.
 

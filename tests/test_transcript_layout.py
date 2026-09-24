@@ -11,15 +11,33 @@ from arcatom_codex.ui import ArcatomApp, Composer, pretty
 
 
 class FlatContentTests(unittest.TestCase):
-    def test_headings_and_user_messages_have_no_panel_background(self):
+    def test_only_user_messages_have_gray_background(self):
         console = Console(width=80)
         for palette in PALETTES.values():
-            for content in (
-                    section_heading("Working", 2, palette.accent, palette, False),
-                    pretty({"type": "userMessage", "content": [
-                        {"type": "text", "text": "测试 message"}]}, palette=palette)):
-                self.assertTrue(all(segment.style is None or segment.style.bgcolor is None
-                                    for segment in console.render(content)))
+            heading = section_heading("Working", 2, palette.accent, palette, False)
+            self.assertTrue(all(segment.style is None or segment.style.bgcolor is None
+                                for segment in console.render(heading)))
+            user = pretty({"type": "userMessage", "content": [
+                {"type": "text", "text": "测试 message"}]}, palette=palette)
+            text = next(segment for segment in console.render(user) if "测试" in segment.text)
+            self.assertEqual(text.style.bgcolor.name, "#373737" if palette.dark else "#dcdcd9")
+            self.assertTrue(text.style.bold)
+
+    def test_inline_and_fenced_code_keep_colors_without_background(self):
+        console = Console(width=80)
+        for palette in PALETTES.values():
+            for theme in ("monokai", "friendly"):
+                for kind in ("agentMessage", "plan"):
+                    message = pretty({"type": kind, "text":
+                        "master: `d04a45d`\n\n```python\nprint('hello')\n```"},
+                        code_theme=theme, palette=palette)
+                    segments = list(console.render(message))
+                    self.assertTrue(all(not segment.style or not segment.style.bgcolor or
+                                        segment.style.bgcolor.is_default for segment in segments))
+                    commit = next(segment for segment in segments if "d04a45d" in segment.text)
+                    self.assertTrue(commit.style.bold)
+                    self.assertIsNotNone(commit.style.color)
+                    self.assertIn("print('hello')", "".join(segment.text for segment in segments))
 
 
 class TranscriptLayoutTests(unittest.IsolatedAsyncioTestCase):
