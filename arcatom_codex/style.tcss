@@ -1,0 +1,49 @@
+Screen { background: #191918; color: #e6e1d7; }
+ArcatomApp { background: #191918; }
+#brand { height: 2; padding: 1 3 0 3; }
+#connection { height: 2; padding: 0 3; color: #9b978f; }
+#view { height: 1fr; padding: 0 3; }
+#welcome { text-style: bold; color: #eee9df; height: 2; margin-top: 1; }
+#tagline { height: 2; }
+.muted { color: #9b978f; }
+#overview { height: 3; padding: 1 0; color: #d99a76; }
+Input { background: #222220; border: tall #42403b; color: #eee9df; }
+Input:focus { border: tall #d99a76; }
+#search { margin-bottom: 1; }
+OptionList { background: #191918; border: none; padding: 0; }
+OptionList > .option-list--option { padding: 0 1; }
+OptionList > .option-list--option-highlighted { background: #35302a; color: #f3dfca; text-style: none; }
+OptionList:focus > .option-list--option-highlighted { background: #35302a; color: #f3dfca; }
+#sessions { height: 1fr; }
+#home-hint { height: 2; padding-top: 1; }
+#bottom { dock: bottom; height: auto; min-height: 2; max-height: 4; padding: 0 3; border-top: solid #42403b; background: #222220; }
+#chat-title { height: 2; text-style: bold; }
+#chat-path { height: 2; }
+#transcript-scroll { height: 1fr; scrollbar-size: 1 1; }
+#transcript { height: auto; padding-right: 1; }
+#waiting { height: 1; color: #d99a76; }
+#activity-summary { height: 2; padding-top: 1; color: #d99a76; }
+#activities { height: auto; max-height: 9; border-left: solid #625044; margin-bottom: 1; }
+#activities > .option-list--option { padding: 0 1; }
+#composer { height: 5; min-height: 3; border-top: solid #d99a76; border-bottom: solid #625044; background: #222220; color: #eee9df; padding: 0 1; }
+#composer:focus { border-top: solid #d99a76; border-bottom: solid #d99a76; }
+#chat-hint { height: 1; }
+ModalScreen { align: center middle; background: #000000 60%; }
+#dialog { width: 85%; max-width: 110; height: 85%; background: #222220; border: round #d99a76; padding: 1 2; }
+#small-dialog { width: 80%; max-width: 90; height: auto; background: #222220; border: round #d99a76; padding: 1 2; }
+#dialog-title { height: auto; max-height: 8; margin-bottom: 1; color: #d99a76; text-style: bold; }
+#detail-scroll { height: 1fr; }
+#detail-body { height: auto; }
+#dialog-actions { height: 3; margin-top: 1; }
+Button { background: #35302a; border: none; margin-right: 2; }
+Button:focus { text-style: bold; tint: #d99a76 20%; }
+#answers { height: 1fr; }
+Screen.compact #brand { height: 1; padding-top: 0; }
+Screen.compact #connection { height: 1; }
+Screen.compact #composer { height: 3; }
+Screen.compact #chat-path { height: 1; }
+Screen.compact #chat-title { height: 1; }
+.command-menu { height: auto; max-height: 8; border: round #625044; background: #222220; margin-bottom: 1; }
+.command-menu > .option-list--option { padding: 0 1; }
+#choices { height: 1fr; margin-top: 1; }
+Screen.compact .command-menu { max-height: 6; }

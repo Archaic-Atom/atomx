@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arcatom-codex"
+version = "0.1.0"
+description = "A keyboard-first terminal workspace for local Codex sessions"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["textual==6.12.0"]
+
+[project.scripts]
+arcatom = "arcatom_codex.__main__:main"
+
+[tool.setuptools.package-data]
+arcatom_codex = ["*.tcss"]
+
+[tool.setuptools.packages.find]
+include = ["arcatom_codex*"]
