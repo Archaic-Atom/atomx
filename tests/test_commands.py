@@ -1,7 +1,8 @@
 import asyncio
 import os
 from pathlib import Path
-import pty
+if os.name != "nt":
+    import pty
 import select
 import subprocess
 import sys
@@ -47,6 +48,7 @@ class CatalogTests(unittest.TestCase):
         self.assertFalse(terminal_reply(b"\x1b[A"))
         self.assertFalse(terminal_reply(b"/plugins"))
 
+    @unittest.skipIf(os.name == "nt", "POSIX PTY; Windows uses the inherited console")
     def test_native_pty_prefills_but_never_submits(self):
         with tempfile.TemporaryDirectory() as directory:
             fake = Path(directory) / "fake-codex"
@@ -84,7 +86,7 @@ class CatalogTests(unittest.TestCase):
 class CommandUiTests(unittest.IsolatedAsyncioTestCase):
     async def test_archive_stays_hidden_after_late_status_event(self):
         client = DemoClient()
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await self.open_chat(app, pilot)
             tid = app.current
@@ -97,7 +99,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_compact_and_stop_call_the_real_backend_actions(self):
         client = DemoClient()
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await self.open_chat(app, pilot)
             app.query_one(Composer).load_text("/compact")
@@ -117,7 +119,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_slash_filter_tab_escape_and_keyboard_model_selection(self):
         client = DemoClient()
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test(size=(80, 24)) as pilot:
             await self.open_chat(app, pilot)
             await pilot.press("/", "m", "o", "d")
@@ -150,7 +152,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_model_cancel_and_backend_failure_do_not_claim_success(self):
         client = DemoClient()
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await self.open_chat(app, pilot)
             app.query_one(Composer).load_text("/model")
@@ -175,7 +177,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(app.query_one(Composer).text, "/model demo-reasoner")
 
     async def test_home_slash_creates_session_and_opens_model_picker(self):
-        app = ArcatomApp("/tmp", client=DemoClient(), demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause(.2)
             await pilot.press("/", "m", "o", "d", "enter")
@@ -187,7 +189,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_plan_model_updates_are_session_scoped_and_keep_plan(self):
         client = DemoClient()
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await self.open_chat(app, pilot)
             app.query_one(Composer).load_text("/plan")
@@ -210,7 +212,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_native_commands_are_labeled_and_demo_is_isolated(self):
         client = DemoClient()
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await self.open_chat(app, pilot)
             app.query_one(Composer).load_text("/plugins")
@@ -219,12 +221,12 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.press("enter")
             await pilot.pause(.2)
             self.assertIsInstance(app.screen, Detail)
-            self.assertIn("原生", app.screen.heading)
+            self.assertIn("Native", app.screen.heading)
             self.assertFalse(any(m == "turn/start" for m, _ in client.calls))
 
     async def test_unknown_command_and_ordinary_slash_paths_are_preserved(self):
         client = DemoClient()
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await self.open_chat(app, pilot)
             composer = app.query_one(Composer)

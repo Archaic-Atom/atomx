@@ -15,3 +15,5 @@ The offline tests use synthetic sessions and do not require a Codex account. Use
 Real integration checks in `scripts/live_check.py` require a local Codex login. Flags that send prompts consume model usage. They are not run in CI.
 
 Changes to command behavior should include regression coverage for cancellation, backend failures, and session isolation where applicable. Keep native Codex handoffs visibly identified and preserve the backend's approval and trust decisions.
+
+Windows uses `.venv\Scripts\python.exe`. Keep platform-specific imports inside their platform branches. UI strings go through `i18n.tr`; keep `locales/en.json` complete and never translate user/model content or protocol identifiers.

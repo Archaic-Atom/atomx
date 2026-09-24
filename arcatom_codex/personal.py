@@ -32,7 +32,7 @@ def discover_skills(root: Path | None = None) -> list[PersonalSkill]:
         if not path.is_file():
             continue
         try:
-            content = path.read_text()
+            content = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             continue
         front = content.split("---", 2)[1] if content.startswith("---") else ""
@@ -98,7 +98,7 @@ def turn_context(text: str, skills: list[PersonalSkill], catalog: str) -> dict:
         context["arcatom-personal-workflows"] = {"kind": "application", "value": catalog}
     for selected in mentioned_skills(text, skills):
         path = Path(selected["path"])
-        body = path.read_text()
+        body = path.read_text(encoding="utf-8")
         context["arcatom-skill-" + selected["name"]] = {
             "kind": "application",
             "value": (

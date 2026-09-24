@@ -1,11 +1,12 @@
 # 命令覆盖与行为
 
-核对版本：本机 `codex-cli 0.156.1`。以该版本官方 `tui/src/slash_command.rs` 的命令枚举和别名为基准，并参考 [官方命令文档](https://learn.chatgpt.com/docs/developer-commands?surface=cli)。菜单共 70 项（包含别名与 Arcatom 补充入口），不是 70 个独立后端能力。
+核对版本：本机 `codex-cli 0.156.1`。以该版本官方 `tui/src/slash_command.rs` 的命令枚举和别名为基准，并参考 [官方命令文档](https://learn.chatgpt.com/docs/developer-commands?surface=cli)。菜单共 72 项（包含别名与 Arcatom 补充入口），不是 72 个独立后端能力。
 
-## 应用内处理（46 项）
+## 应用内处理（48 项）
 
 | 命令 | 行为 |
 | --- | --- |
+| settings / palette | 语言、整套界面配色、强调色、自动跟随、紧凑布局与默认目录；F2 也可打开 |
 | model / reasoning | 从 model/list 分页读取模型与强度，通过 thread/settings/update 更新当前会话；取消和失败都不伪报成功 |
 | permissions | 从后端读取允许选择的权限配置，应用到当前会话 |
 | plan | 切换计划 / 执行模式；可附带任务；模型切换保留当前模式 |
@@ -21,7 +22,7 @@
 | goal | 读取目标，设置目标文字，或 pause / resume / clear |
 | status / usage | 当前配置和用量；usage 带参数时进入原生账户用量流程 |
 | diff | 查看 Git 暂存、未暂存和未跟踪文件差异；超大结果截断 |
-| copy | 通过终端剪贴板复制最近的完整回复 |
+| copy | 通过系统剪贴板和终端 OSC 52 复制最近的完整回复 |
 | export | 导出已加载会话为 Markdown；文件已存在时拒绝覆盖 |
 | mention | 选择文件或输入路径，插入待发送文本；扫描最多 1500 项 |
 | cd / pwd / cwd | 修改或查看会话工作目录 |
@@ -40,7 +41,7 @@
 
 `/ide`、`/keymap`、`/vim`、`/experimental`、`/approve`、`/memories`、`/import`、`/hooks`、`/worktree`、`/app`、`/voice`、`/tui`、`/daemon`、`/pets`、`/pet`、`/apps`、`/plugins`、`/logout`、`/feedback`、`/setup-default-sandbox`、`/sandbox-add-read-dir`、`/test-approval`、`/debug-m-drop`、`/debug-m-update`。
 
-这些菜单项标为 `[原生]`。Arcatom 暂时让出终端，由官方 Codex 恢复同一会话并显示原生交互。检测到正常输入框后只填入命令，不自动按 Enter；你可检查后执行。输入 /quit 后回到 Arcatom，并重连后端加载变更。
+这些菜单项标为 `[原生]`。Arcatom 暂时让出终端，由官方 Codex 恢复同一会话并显示原生交互。macOS / Linux 检测到正常输入框后只填入命令，不自动按 Enter；你可检查后执行。Windows 直接接管控制台，请手动输入所选命令。输入 /quit 后回到 Arcatom，并重连后端加载变更。
 
 如果出现登录、目录信任等前置页面，先按官方流程完成，再输入所选命令。Arcatom 不代为批准这些步骤。正在执行的回合和后台终端需先结束，以免重连时丢失运行状态。临时分叉不能交给另一个进程恢复，应先使用普通 /fork。
 

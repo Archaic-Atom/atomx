@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,14 +7,16 @@ name = "arcatom-codex"
 version = "0.1.0"
 description = "A keyboard-first terminal workspace for local Codex sessions"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
-dependencies = ["textual==6.12.0"]
+dependencies = ["textual==6.12.0", "Pillow==12.3.0"]
 
 [project.scripts]
 arcatom = "arcatom_codex.__main__:main"
 
 [tool.setuptools.package-data]
-arcatom_codex = ["*.tcss"]
+arcatom_codex = ["*.tcss", "assets/*.png", "locales/*.json"]
 
 [tool.setuptools.packages.find]
 include = ["arcatom_codex*"]

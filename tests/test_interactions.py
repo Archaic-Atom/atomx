@@ -53,8 +53,11 @@ class PreferencesTests(unittest.TestCase):
             (source / "SKILL.md").write_text("---\nname: sample\ndescription: >\n  Draw figures\n  clearly.\n---\nBody")
             skills = root / "skills"
             skills.mkdir()
-            (skills / "sample").symlink_to(source, target_is_directory=True)
-            (skills / "synced").symlink_to(source, target_is_directory=True)
+            try:
+                (skills / "sample").symlink_to(source, target_is_directory=True)
+                (skills / "synced").symlink_to(source, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"Directory symlinks unavailable: {error}")
             result = discover_skills(skills)
             self.assertEqual(len(result), 1)
             self.assertEqual(result[0].description, "Draw figures clearly.")
@@ -80,7 +83,7 @@ class PreferencesTests(unittest.TestCase):
 class InteractionTests(unittest.IsolatedAsyncioTestCase):
     async def test_delete_selected_only_once_and_keep_neighbor(self):
         client = PausedClient("thread/delete")
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause(.2)
             await pilot.press("down", "ctrl+x", "ctrl+x")
@@ -96,7 +99,7 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_delete_failure_keeps_history(self):
         client = PausedClient("thread/delete", fail=True)
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
             await pilot.press("down", "ctrl+x")
@@ -107,7 +110,7 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_immediate_echo_during_resume_and_no_duplicate(self):
         client = PausedClient("thread/resume")
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause(.2)
             await pilot.press("down", "enter")
@@ -136,7 +139,7 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_send_failure_restores_draft_without_retry(self):
         client = PausedClient("thread/resume", fail=True)
-        app = ArcatomApp("/tmp", client=client, demo=True)
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
             await pilot.press("down", "enter")

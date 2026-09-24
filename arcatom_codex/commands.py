@@ -3,6 +3,7 @@
 菜单和分发共用一个索引；原生专用命令明确标注，避免空实现。
 """
 from dataclasses import dataclass
+from .i18n import tr
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,8 @@ class Command:
 
 
 COMMANDS = [
+    Command("settings", "设置界面主题、目录与使用习惯"),
+    Command("palette", "界面调色板与强调色"),
     Command("model", "选择模型和推理强度"),
     Command("reasoning", "调整当前模型的推理强度"),
     Command("permissions", "选择会话权限"),
@@ -94,5 +97,5 @@ def matches(text: str) -> list[Command]:
     if not text.startswith("/") or any(c.isspace() for c in text):
         return []
     query = text[1:].casefold()
-    return sorted((c for c in COMMANDS if query in c.name.casefold() or query in c.description),
+    return sorted((c for c in COMMANDS if query in c.name.casefold() or query in c.description or query in tr(c.description).casefold()),
                   key=lambda c: (c.name != query, not c.name.startswith(query), COMMANDS.index(c)))

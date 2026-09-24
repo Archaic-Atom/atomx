@@ -1,11 +1,13 @@
 """Local app-server JSONL transport. Never interpret shell commands or auto-approve."""
 from __future__ import annotations
 
+from .i18n import tr
 import asyncio
 from collections import deque
 import json
 import os
 from typing import Any
+from .platform_support import executable_argv
 
 
 class RpcError(RuntimeError):
@@ -28,7 +30,7 @@ class CodexClient:
     async def start(self):
         env = dict(os.environ, NO_COLOR="1")
         self.process = await asyncio.create_subprocess_exec(
-            self.binary, "app-server", "--stdio", cwd=self.cwd, env=env,
+            *executable_argv(self.binary), "app-server", "--stdio", cwd=self.cwd, env=env,
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE, limit=32 * 1024 * 1024,
         )
@@ -41,12 +43,12 @@ class CodexClient:
 
     async def send(self, message: dict):
         if not self.process or self.process.returncode is not None:
-            raise RpcError("Codex 连接已关闭")
+            raise RpcError(tr('Codex 连接已关闭'))
         self.process.stdin.write((json.dumps(message, ensure_ascii=False) + "\n").encode())
         try:
             await self.process.stdin.drain()
         except (BrokenPipeError, ConnectionResetError) as exc:
-            raise RpcError("Codex 连接已关闭") from exc
+            raise RpcError(tr('Codex 连接已关闭')) from exc
 
     async def call(self, method: str, params: dict | None = None, timeout: float = 30) -> Any:
         self.sequence += 1
@@ -58,7 +60,7 @@ class CodexClient:
             return await asyncio.wait_for(future, timeout)
         except asyncio.TimeoutError as exc:
             # Mutating calls must NOT be retried automatically: the server may have accepted them.
-            raise RpcError(f"{method} 响应超时；请先检查会话状态，避免重复发送") from exc
+            raise RpcError(tr('{0} 响应超时；请先检查会话状态，避免重复发送').format(method)) from exc
         finally:
             self.pending.pop(request_id, None)
 
@@ -88,7 +90,7 @@ class CodexClient:
             self.stderr.append(str(exc))
         finally:
             await asyncio.sleep(0.05)
-            error = RpcError("Codex 服务已退出。" + "\n".join(self.stderr)[-1600:])
+            error = RpcError(tr('Codex 服务已退出。') + "\n".join(self.stderr)[-1600:])
             for future in list(self.pending.values()):
                 if not future.done():
                     future.set_exception(error)

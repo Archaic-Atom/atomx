@@ -1,6 +1,7 @@
 """Event reduction is independent of the UI; all identifiers are scoped to threads."""
 from __future__ import annotations
 
+from .i18n import tr
 from dataclasses import dataclass, field
 import json
 import os
@@ -52,10 +53,28 @@ class Session:
     phase: str = ""
     pending_messages: dict[str, str] = field(default_factory=dict)
     streaming_items: set[str] = field(default_factory=set)
+    pending_requests: set[str] = field(default_factory=set)
+    awaiting_input: bool = False
+    attachments: list[str] = field(default_factory=list)
+
+    @property
+    def section(self) -> str:
+        """Classify live work without turning old idle threads into waiting work.
+
+        优先使用真实审批/提问标志；历史 idle 会话仍归入历史。
+        """
+        state = self.meta.get("status", {})
+        flags = state.get("activeFlags", []) if state.get("type") == "active" else []
+        if self.pending_requests or any(f in flags for f in (
+                "waitingOnApproval", "waitingOnUserInput")):
+            return "waiting"
+        if self.active_turn or self.busy_since is not None or state.get("type") == "active":
+            return "working"
+        return "waiting" if self.awaiting_input or self.draft or self.attachments else "history"
 
     @property
     def title(self):
-        return clean(self.meta.get("name") or self.meta.get("agentNickname") or self.meta.get("preview") or "新会话").replace("\n", " ")
+        return clean(self.meta.get("name") or self.meta.get("agentNickname") or self.meta.get("preview") or tr('新会话')).replace("\n", " ")
 
     @property
     def total(self):
@@ -63,10 +82,12 @@ class Session:
 
     @property
     def status(self):
+        if self.section == "waiting":
+            return tr('等待确认 / 输入')
         state = self.meta.get("status", {})
         if self.active_turn or state.get("type") == "active":
-            return "运行中"
-        return {"systemError": "异常", "idle": "就绪", "notLoaded": "历史"}.get(state.get("type"), "就绪")
+            return tr('运行中')
+        return {"systemError": tr('异常'), "idle": tr('就绪'), "notLoaded": tr('历史')}.get(state.get("type"), tr('就绪'))
 
     def ingest(self, item: dict):
         item_id = item.get("id")
@@ -177,11 +198,13 @@ class Store:
         elif method == "thread/status/changed":
             session.meta["status"] = params["status"]
         elif method == "turn/started":
+            session.awaiting_input = False
             session.active_turn = params["turn"]["id"]
             session.meta["status"] = {"type": "active"}
             session.busy_since = session.busy_since or time.monotonic()
-            session.phase = "Codex 正在思考"
+            session.phase = tr('Codex 正在思考')
         elif method == "turn/completed":
+            session.awaiting_input = True
             session.active_turn = None
             session.busy_since = None
             session.phase = ""
@@ -200,11 +223,11 @@ class Store:
             if session.active_turn:
                 item_type = params["item"].get("type")
                 session.phase = {
-                    "commandExecution": "Codex 正在执行命令",
-                    "mcpToolCall": "Codex 正在调用工具",
-                    "collabAgentToolCall": "Codex 正在协调子代理",
-                    "agentMessage": "Codex 正在回复",
-                }.get(item_type, "Codex 正在思考") if method == "item/started" else "等待 Codex"
+                    "commandExecution": tr('Codex 正在执行命令'),
+                    "mcpToolCall": tr('Codex 正在调用工具'),
+                    "collabAgentToolCall": tr('Codex 正在协调子代理'),
+                    "agentMessage": tr('Codex 正在回复'),
+                }.get(item_type, tr('Codex 正在思考')) if method == "item/started" else tr('等待 Codex')
         elif method in ("item/agentMessage/delta", "item/plan/delta", "item/commandExecution/outputDelta"):
             item_id = params["itemId"]
             command = method == "item/commandExecution/outputDelta"
@@ -213,9 +236,9 @@ class Store:
             item[key] = (item.get(key) or "") + params.get("delta", "")
             if not command:
                 session.streaming_items.add(item_id)
-                session.phase = "Codex 正在回复"
+                session.phase = tr('Codex 正在回复')
         elif method == "error":
-            message = params.get("error", {}).get("message", "未知错误")
+            message = params.get("error", {}).get("message", tr('未知错误'))
             session.ingest({"id": f"error-{self.revision}", "type": "notice", "text": message})
         self.revision += 1
 

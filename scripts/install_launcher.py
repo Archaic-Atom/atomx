@@ -1,8 +1,16 @@
 """Install a user-local launcher without modifying shell configuration or Codex."""
 from pathlib import Path
 import shlex
+import os
+import subprocess
+import sys
 
 root = Path(__file__).resolve().parents[1]
+if os.name == "nt":
+    # pip creates the platform-native console launcher in the Python Scripts dir.
+    subprocess.run([sys.executable, "-m", "pip", "install", "--no-deps", str(root)], check=True)
+    print("Installed arcatom.exe in this Python environment's Scripts directory.")
+    raise SystemExit(0)
 target = Path.home() / ".local" / "bin" / "arcatom"
 content = "#!/bin/sh\n# Arcatom Codex launcher\nexec " + shlex.quote(str(root / "arcatom")) + ' "$@"\n'
 if target.exists() or target.is_symlink():

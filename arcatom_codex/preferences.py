@@ -11,7 +11,7 @@ def preference_path() -> Path:
 
 def read_preferences(path: Path | None = None) -> dict:
     try:
-        value = json.loads((path or preference_path()).read_text())
+        value = json.loads((path or preference_path()).read_text(encoding="utf-8"))
         return value if isinstance(value, dict) else {}
     except (OSError, ValueError):
         return {}
@@ -22,7 +22,7 @@ def write_preferences(value: dict, path: Path | None = None) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=".preferences-", dir=target.parent)
     try:
-        with os.fdopen(fd, "w") as file:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
             json.dump(value, file, ensure_ascii=False, indent=2)
             file.write("\n")
         os.replace(temporary, target)

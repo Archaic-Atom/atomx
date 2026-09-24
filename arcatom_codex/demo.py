@@ -140,7 +140,7 @@ class DemoClient:
                 await self.events.put({"method": "thread/deleted", "params": {"threadId": tid}})
             return {}
         if method in ("turn/start", "turn/steer"):
-            task = asyncio.create_task(self.respond(params["threadId"], params["input"][0]["text"]))
+            task = asyncio.create_task(self.respond(params["threadId"], params["input"], params.get("clientUserMessageId")))
             self.tasks.append(task)
             return {"turn": {"id": "demo-response", "status": "inProgress"}}
         if method == "turn/interrupt":
@@ -156,12 +156,12 @@ class DemoClient:
     async def reject_unsupported(self, rid):
         self.replies.append((rid, {"error": "unsupported"}))
 
-    async def respond(self, tid, prompt):
+    async def respond(self, tid, content, client_id=None):
         async def emit(method, **params):
             await self.events.put({"method": method, "params": dict(threadId=tid, **params)})
         uid, aid = str(uuid.uuid4()), str(uuid.uuid4())
         await emit("turn/started", turn={"id": "demo-response", "status": "inProgress"})
-        await emit("item/completed", item={"id": uid, "type": "userMessage", "content": [{"type": "text", "text": prompt}]})
+        await emit("item/completed", item={"id": uid, "type": "userMessage", "content": content, "clientId": client_id})
         await emit("item/started", item={"id": aid, "type": "agentMessage", "text": ""})
         text = "这是离线演示回复。实际模式会把你的消息发送给本机 Codex，并实时显示回复、子代理和命令状态。"
         for i in range(0, len(text), 5):

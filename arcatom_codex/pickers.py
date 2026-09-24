@@ -1,4 +1,5 @@
 """Keyboard-first searchable choices. 可搜索的键盘选择面板。"""
+from .i18n import tr
 from rich.text import Text
 from textual import on, events
 from textual.containers import Vertical
@@ -19,7 +20,7 @@ class PickerSearch(Input):
 
 
 class Picker(ModalScreen[str | None]):
-    BINDINGS = [("escape", "cancel", "取消")]
+    BINDINGS = [("escape", "cancel", tr('取消'))]
 
     def __init__(self, title: str, choices: list[tuple[str, str]], selected: str | None = None):
         super().__init__()
@@ -28,7 +29,7 @@ class Picker(ModalScreen[str | None]):
     def compose(self):
         with Vertical(id="dialog"):
             yield Static(Text(self.heading), id="dialog-title")
-            yield PickerSearch(placeholder="输入筛选 · ↑↓ 选择 · Enter 确认 · Esc 取消", id="picker-search")
+            yield PickerSearch(placeholder=tr('输入筛选 · ↑↓ 选择 · Enter 确认 · Esc 取消'), id="picker-search")
             yield OptionList(id="choices")
 
     def on_mount(self):
@@ -68,7 +69,7 @@ class Picker(ModalScreen[str | None]):
 
 
 class Prompt(ModalScreen[str | None]):
-    BINDINGS = [("escape", "cancel", "取消")]
+    BINDINGS = [("escape", "cancel", tr('取消'))]
 
     def __init__(self, title: str, value: str = ""):
         super().__init__()
@@ -78,7 +79,7 @@ class Prompt(ModalScreen[str | None]):
         with Vertical(id="small-dialog"):
             yield Static(Text(self.heading), id="dialog-title")
             yield Input(self.value)
-            yield Static("Enter 确认 · Esc 取消")
+            yield Static(tr('Enter 确认 · Esc 取消'))
 
     @on(Input.Submitted)
     def submit(self, event):

@@ -46,12 +46,13 @@ class StateTests(unittest.TestCase):
 class UiTests(unittest.IsolatedAsyncioTestCase):
     def app(self):
         client = DemoClient()
-        return ArcatomApp(cwd="/tmp", client=client, demo=True), client
+        return ArcatomApp(cwd=tempfile.gettempdir(), client=client, demo=True), client
 
     async def test_empty_left_and_draft_preservation(self):
         app, client = self.app()
         async with app.run_test(size=(110, 36)) as pilot:
             await pilot.pause(0.3)
+            app.query_one("#sessions").focus()
             await pilot.press("enter")
             await pilot.pause(0.3)
             self.assertEqual(app.current, "demo-login")
@@ -60,7 +61,10 @@ class UiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(app.current, "demo-login")
             self.assertEqual(composer.text, "hi")
             await pilot.press("escape")
+            self.assertIsNotNone(app.current)
+            await pilot.press("escape")
             self.assertIsNone(app.current)
+            app.query_one("#sessions").focus()
             await pilot.press("enter")
             await pilot.pause(0.2)
             self.assertEqual(composer.text, "hi")
@@ -88,6 +92,7 @@ class UiTests(unittest.IsolatedAsyncioTestCase):
         app, client = self.app()
         async with app.run_test(size=(100, 34)) as pilot:
             await pilot.pause(0.2)
+            app.query_one("#sessions").focus()
             await pilot.press("enter")
             await pilot.pause(0.3)
             await pilot.press("ctrl+t")
@@ -124,7 +129,7 @@ class UiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.press("ctrl+n", "enter")
             await pilot.pause(0.3)
             self.assertIsNotNone(app.current)
-            self.assertEqual(app.store.get(app.current).meta["cwd"], str(Path("/tmp").resolve()))
+            self.assertEqual(app.store.get(app.current).meta["cwd"], str(Path(tempfile.gettempdir()).resolve()))
             self.assertGreater(app.query_one("#transcript-scroll").size.height, 0)
 
 

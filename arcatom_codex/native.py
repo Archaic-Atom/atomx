@@ -4,22 +4,22 @@
 """
 from __future__ import annotations
 
+from .i18n import tr
 import argparse
 import errno
-import fcntl
 import os
-import pty
 import re
 import select
 import signal
 import sys
-import termios
-import tty
+import subprocess
 import time
+
+from .platform_support import executable_argv
 
 
 def native_argv(binary: str, cwd: str, thread: str | None) -> list[str]:
-    argv = [binary, "--no-daemon", "--no-alt-screen", "--cd", cwd]
+    argv = [*executable_argv(binary), "--no-daemon", "--no-alt-screen", "--cd", cwd]
     if thread:
         argv.extend(["resume", thread])
     return argv
@@ -40,9 +40,18 @@ def terminal_reply(data: bytes) -> bool:
 def bridge(argv: list[str], command: str) -> int:
     """Forward a terminal, prefilling only after the real composer is visible."""
     if not sys.stdin.isatty() or not sys.stdout.isatty():
-        raise RuntimeError("原生命令需要交互终端。请在 Terminal 或 iTerm 中运行 arcatom。")
+        raise RuntimeError(tr('原生命令需要交互终端，请在系统终端中运行 arcatom。'))
     if "\n" in command or "\r" in command or not command.startswith("/"):
-        raise ValueError("原生命令必须为单行斜杠命令")
+        raise ValueError(tr('原生命令必须为单行斜杠命令'))
+    if os.name == "nt":
+        # Inherit the Windows console. No Unix PTY or simulated keystrokes.
+        # Windows 直接接管控制台；用户在官方输入框中输入已选命令。
+        print(tr('Windows 原生界面打开后，请输入 {0} 并按 Enter。').format(command), flush=True)
+        return subprocess.call(argv)
+    import fcntl
+    import pty
+    import termios
+    import tty
     stdin, stdout = sys.stdin.fileno(), sys.stdout.fileno()
     saved = termios.tcgetattr(stdin)
     pid, master = pty.fork()
@@ -126,7 +135,7 @@ def main():
     parser.add_argument("--thread")
     parser.add_argument("--command", required=True)
     args = parser.parse_args()
-    print(f"官方 Codex · {args.command}\n命令就绪后按 Enter；若出现登录/信任提示，完成后输入该命令。\n使用 /quit 退出官方界面即可返回 Arcatom。", flush=True)
+    print(tr('官方 Codex · {0}\n命令就绪后按 Enter；若出现登录/信任提示，完成后输入该命令。\n使用 /quit 退出官方界面即可返回 Arcatom。').format(args.command), flush=True)
     raise SystemExit(bridge(native_argv(args.binary, args.cwd, args.thread), args.command))
 
 

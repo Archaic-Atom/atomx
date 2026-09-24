@@ -1,13 +1,10 @@
 """Exercise native handoff on a newly created disposable test thread only."""
-import fcntl
 import os
-import pty
 import re
 import select
 import struct
 import subprocess
 import sys
-import termios
 import time
 from pathlib import Path
 
@@ -15,6 +12,11 @@ from arcatom_codex.native import composer_ready
 
 
 def check_native(cwd, thread):
+    if os.name == "nt":
+        return {"skipped": "POSIX PTY check; test Windows console handoff interactively"}
+    import fcntl
+    import pty
+    import termios
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 36, 110, 0, 0))
     env = {**os.environ, "TERM": "xterm-256color"}
