@@ -62,8 +62,8 @@ ACCENT_COLORS = {
 
 def palette_for(preferences: dict) -> Palette:
     """Resolve saved values, including older preferences. 兼容旧偏好。"""
-    palette = PALETTES.get(preferences.get("ui_theme"), PALETTES["warm"])
-    colors = ACCENT_COLORS.get(preferences.get("accent"))
+    palette = PALETTES.get(preferences.get("ui_theme"), PALETTES["gray"])
+    colors = ACCENT_COLORS.get(preferences.get("accent", "copper"))
     return replace(palette, accent=colors[0 if palette.dark else 1]) if colors else palette
 
 

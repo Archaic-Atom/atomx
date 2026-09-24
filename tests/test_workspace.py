@@ -152,7 +152,7 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.press("pageup", "left")
             self.assertIsNone(app.current)
             self.assertEqual(session.draft, "unsent draft")
-            await pilot.press("down", "down", "enter")
+            await pilot.press("up", "up", "enter")
             await pilot.pause(.2)
             self.assertEqual(sum(m == "thread/start" for m, _ in client.calls), 1)
 
@@ -196,7 +196,7 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
-            await pilot.press("down", "down", "enter")
+            await pilot.press("up", "up", "enter")
             await pilot.pause(.2)
             session = app.store.get(app.current)
             path = str(Path(__file__).resolve().parents[1] / "arcatom_codex/assets/logo-dark.png")
@@ -233,7 +233,7 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.palette.background, PALETTES["paper"].background)
                 await pilot.press("escape")
                 await pilot.pause(.1)
-                self.assertEqual(app.palette.background, PALETTES["warm"].background)
+                self.assertEqual(app.palette.background, PALETTES["gray"].background)
                 await pilot.press("f2")
                 for name in PALETTES:
                     app.screen.query_one("#ui-theme", Select).value = name
@@ -299,7 +299,7 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(sum(options.get_option_at_index(i).disabled
                                  for i in range(options.option_count)), 3)
             self.assertIsNone(options.highlighted)
-            await pilot.press("down")
+            await pilot.press("up", "up", "up")
             app.store.event("turn/started", {"threadId": "demo-dashboard", "turn": {"id": "t"}})
             app.paint(force=True)
             self.assertEqual(options.get_option_at_index(options.highlighted).id, "demo-login")

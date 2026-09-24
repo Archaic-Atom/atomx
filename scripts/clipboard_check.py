@@ -4,6 +4,7 @@ import json
 import shlex
 import subprocess
 import sys
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -15,12 +16,14 @@ def main() -> None:
     if "--worker" in sys.argv:
         from arcatom_codex.clipboard import copy_text
         sample = "ARCATOM clipboard check · 中文\nsecond line"
+        started = time.perf_counter()
         if not copy_text(sample):
             raise SystemExit("System clipboard rejected the test text.")
+        elapsed_ms = (time.perf_counter() - started) * 1000
         result = subprocess.run(["pbpaste"], capture_output=True, check=True, timeout=4)
         if result.stdout.decode("utf-8") != sample:
             raise SystemExit("Clipboard round trip did not match.")
-        print("PASS: UTF-8 multiline text copied and read back.")
+        print(f"PASS: UTF-8 multiline text copied in {elapsed_ms:.1f} ms and read back.")
         return
     command = shlex.join([sys.executable, str(Path(__file__).resolve()), "--worker"])
     # AppleScript's clipboard record retains text, images and other supplied formats.

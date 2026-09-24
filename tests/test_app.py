@@ -77,7 +77,7 @@ class UiTests(unittest.IsolatedAsyncioTestCase):
         app, client = self.app()
         async with app.run_test(size=(90, 30)) as pilot:
             await pilot.pause(0.2)
-            await pilot.press("down", "down", "enter")
+            await pilot.press("up", "up", "enter")
             await pilot.pause(0.2)
             self.assertEqual(app.current, "demo-dashboard")
             await pilot.press("a", "ctrl+j", "b", "enter")

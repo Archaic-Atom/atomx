@@ -35,7 +35,7 @@ from .pickers import Prompt
 from .home_list import section_heading, session_row
 
 def pretty(item: dict, code_theme="monokai", palette=None):
-    palette = palette or PALETTES["warm"]
+    palette = palette or palette_for({})
     kind = item.get("type", "")
     if kind == "userMessage":
         text = "\n".join(c.get("text", tr('[图片或附件]')) for c in item.get("content", []))
@@ -385,7 +385,7 @@ class ArcatomApp(CommandActions, App):
         Binding("ctrl+n", "new_session", tr('新会话'), priority=True),
         Binding("f2", "settings", tr('设置'), priority=True),
         Binding("ctrl+l,f6", "focus_input", tr('回到输入框'), priority=True),
-        Binding("f3,ctrl+shift+c", "copy_selection", tr('复制'), priority=True),
+        Binding("f3,ctrl+shift+c,super+c", "copy_selection", tr('复制'), priority=True),
         Binding("ctrl+v", "paste_clipboard", tr('粘贴文字 / 图片'), priority=True),
         Binding("f4", "attach_image", tr('添加图片'), priority=True),
         Binding("f8", "attachments", tr('管理图片'), priority=True),
@@ -504,19 +504,15 @@ class ArcatomApp(CommandActions, App):
                 inputs.first().focus()
 
     def copy_to_clipboard(self, text: str) -> None:
-        super().copy_to_clipboard(text)
+        self._clipboard = text
         async def write():
             copied = await asyncio.to_thread(copy_text, text)
             if copied:
                 self.notify(tr('已复制到系统剪贴板。'))
             else:
+                super(ArcatomApp, self).copy_to_clipboard(text)
                 self.notify(tr('系统剪贴板不可用，已尝试终端复制；请检查终端剪贴板权限。'), severity="warning")
         self.launch(write())
-
-    def on_text_selected(self, event: events.TextSelected):
-        text = self.screen.get_selected_text()
-        if text:
-            self.copy_to_clipboard(text)
 
     def action_copy_selection(self):
         focused = self.screen.focused
@@ -649,9 +645,9 @@ class ArcatomApp(CommandActions, App):
                 with Horizontal(id="home-actions"):
                     yield HomeButton(tr('＋ 新会话 · Ctrl+N'), id="new-session")
                     yield HomeButton(tr('设置 / 调色板 · F2'), id="settings")
-                yield SessionSearch(placeholder=tr('⌕  搜索会话名称或工作目录…'), id="search")
-                yield OptionList(id="home-commands", classes="command-menu")
                 yield SessionList(id="sessions")
+                yield OptionList(id="home-commands", classes="command-menu")
+                yield SessionSearch(placeholder=tr('⌕  搜索会话名称或工作目录…'), id="search")
                 yield Static(tr('Enter 新建 · ↑↓ 历史 · Ctrl+X 删除 · Ctrl+N 目录 · F2 设置'), id="home-hint", classes="muted")
             with Vertical(id="chat"):
                 yield Static("", id="chat-title", markup=False)
@@ -1096,9 +1092,10 @@ class ArcatomApp(CommandActions, App):
     def move_home_focus(self, direction):
         """Follow visual order through home actions, input and session rows."""
         options = self.query_one("#sessions", SessionList)
-        fields = ["new-session", "settings", "search"]
+        fields = ["new-session", "settings"]
         if options.selectable_indices():
             fields.append("sessions")
+        fields.append("search")
         current = self.screen.focused.id if self.screen.focused else "search"
         index = fields.index(current) if current in fields else fields.index("search")
         target = self.query_one("#" + fields[(index + direction) % len(fields)])

@@ -7,7 +7,7 @@ ArcatomApp { background: $arc-background; }
 #overview { height: 1; color: $arc-accent; }
 Input { background: $arc-surface; border: tall $arc-border; color: $arc-foreground; }
 Input:focus { border: tall $arc-accent; }
-#search { height: 3; min-height: 3; border: round $arc-border; padding: 0 1; margin: 0 0 1 0; }
+#search { height: 5; min-height: 5; border: round $arc-border; padding: 1 1; margin: 1 0 0 0; }
 #search:focus { border: round $arc-accent; background: $arc-selection; }
 OptionList { background: $arc-background; border: none; padding: 0; }
 OptionList > .option-list--option { padding: 0 1; }

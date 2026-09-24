@@ -73,11 +73,11 @@ class Settings(ModalScreen[dict | None]):
                 yield Static(tr('界面调色板 · 首页和会话同步预览'), classes="setting-label")
                 yield Select([(Text("██  " + tr(p.label), p.accent), key)
                               for key, p in PALETTES.items()], id="ui-theme",
-                             value=self.values.get("ui_theme", "warm"), allow_blank=False)
+                             value=self.values.get("ui_theme", "gray"), allow_blank=False)
                 yield Static(tr('强调色'), classes="setting-label")
                 yield Select([(Text("●  " + tr(label), palette_for({**self.values, "accent": key}).accent), key)
                               for key, label in ACCENTS.items()], id="accent",
-                             value=self.values.get("accent", "default"), allow_blank=False)
+                             value=self.values.get("accent", "copper"), allow_blank=False)
                 yield Static("", id="palette-preview", markup=False)
                 with Horizontal(classes="setting-row"):
                     yield Static(tr('自动跟随最新输出（上翻后暂停）'))

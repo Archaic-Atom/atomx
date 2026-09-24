@@ -53,7 +53,7 @@ The default directory is the launch directory, configurable in Settings. Existin
 | Return home | `Esc` while browsing, or `←` while browsing / input is empty |
 | Return directly to editing | `Ctrl+L` / `F6` |
 | Send / newline | `Enter` / `Ctrl+J` (also `Shift+Enter` in supporting terminals) |
-| Copy selected text | Drag and release, or `Ctrl+C`, `F3` / `Ctrl+Shift+C` |
+| Copy selected text | Select, then `Ctrl+C`, `F3` / `Ctrl+Shift+C`; forwarded `Cmd+C` also works |
 | Copy latest reply when nothing is selected | `F3`, `Ctrl+Shift+C` or `/copy` |
 | Paste text or image | `Ctrl+V` |
 | Attach image file / remove pending image | `F4` / `F8` |
@@ -65,13 +65,13 @@ The default directory is the launch directory, configurable in Settings. Existin
 | Interrupt current turn | `Ctrl+C` when no text is selected |
 | Quit | `Ctrl+Q` or `/quit` |
 
-The input is editable on entry. **Esc → browse → Esc → home** preserves your draft. PageUp/PageDown remain optional scrolling shortcuts. Tab and Shift+Tab navigate controls, including settings and dialogs. Home arrows move a single focus through the buttons, input and session rows; moving up from the first session returns to the input. Mouse text selection copies on release; clipboard copy does not interrupt a running turn when text is selected.
+The input is editable on entry. **Esc → browse → Esc → home** preserves your draft. PageUp/PageDown remain optional scrolling shortcuts. Tab and Shift+Tab navigate controls, including settings and dialogs. The larger home input sits below the session list. Home arrows move a single focus through buttons, sessions and input; ↑ from the input selects the last session, and ↓ from the last session returns to the input. Mouse selection never copies automatically; clipboard copy does not interrupt a running turn when text is selected.
 
 The home list has separate colored **Needs your attention**, **Working**, and **History** section headings. Each session occupies one row: title and working directory, plus a reply/task preview on wider terminals. Live approval/question flags take priority. Sessions created or completed in this app, and sessions with drafts or pending images, await input. Old idle sessions remain history. Only statuses available from this app's backend can be shown; another Codex process may own work this backend cannot observe or control.
 
 ## Appearance and usage
 
-Settings offers Warm sand, Midnight, Forest, Graphite and Paper palettes, accent swatches, language, compact layout, output following and the new-session directory. Use ↑/↓ to move between settings, Enter to open a choice, ↑/↓ to choose, and Enter to confirm. Esc closes the choice first, then leaves settings; Ctrl+S saves. Directory editing also starts with Enter, and Esc cancels that field edit. Colors preview immediately; Cancel restores the previous appearance. Language applies on Save. User messages have a separate gray background; changing the interface language does not translate user messages, model replies, paths or server data.
+The default appearance is **Graphite + Copper**. Settings offers Warm sand, Midnight, Forest, Graphite and Paper palettes, accent swatches, language, compact layout, output following and the new-session directory. Use ↑/↓ to move between settings, Enter to open a choice, ↑/↓ to choose, and Enter to confirm. Esc closes the choice first, then leaves settings; Ctrl+S saves. Directory editing also starts with Enter, and Esc cancels that field edit. Colors preview immediately; Cancel restores the previous appearance. Language applies on Save. User messages have a separate gray background; changing the interface language does not translate user messages, model replies, paths or server data.
 
 Usage stays in the status bar: time, cumulative session tokens, remaining context, remaining rate-limit windows and model. Missing values are hidden or shown as `—`; cached input is not counted twice. Session totals can overlap through inherited history and are not billing totals. Account limits refresh every minute; `Ctrl+R` refreshes manually.
 
@@ -79,7 +79,9 @@ Usage stays in the status bar: time, cumulative session tokens, remaining contex
 
 ## Clipboard and images
 
-Text copy works in both real and demo sessions, uses the system clipboard and also sends OSC 52 for compatible terminals. Success is shown after the system clipboard accepts the text; an unavailable system clipboard produces a terminal-fallback notice. macOS uses its built-in clipboard tools; Windows uses PowerShell; Linux needs `wl-clipboard` for Wayland or `xclip` for X11. Image clipboard access uses Pillow and the available desktop clipboard. Headless/SSH environments may have no desktop clipboard. Use **F4** to attach a readable image file when clipboard access is unavailable or the terminal intercepts Ctrl+V.
+Fonts and font size are controlled by your terminal. For iTerm2’s intercepted Cmd+C shortcut, see [terminal keyboard setup](docs/terminal.md).
+
+Text copy works in both real and demo sessions, uses the system clipboard first, and sends OSC 52 only as a fallback. Success is shown after the system clipboard accepts the text; an unavailable system clipboard produces a terminal-fallback notice. macOS uses its built-in clipboard tools; Windows uses PowerShell; Linux needs `wl-clipboard` for Wayland or `xclip` for X11. Image clipboard access uses Pillow and the available desktop clipboard. Headless/SSH environments may have no desktop clipboard. Use **F4** to attach a readable image file when clipboard access is unavailable or the terminal intercepts Ctrl+V.
 
 Pasted images appear as pending attachments and are sent only after Enter. Attachments belong to their session, survive switching sessions, and are restored after a send failure. Image snapshots remain in `~/.cache/arcatom/attachments/` so Codex history can reference them. F8 removes a pending reference, not the cached file; remove that cache manually when you no longer need the historical images. Support for interpreting images depends on the selected model.
 
