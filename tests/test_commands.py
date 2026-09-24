@@ -114,7 +114,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
 
     async def open_chat(self, app, pilot):
         await pilot.pause(.2)
-        await pilot.press("down", "enter")
+        await pilot.press("down", "down", "enter")
         await pilot.pause(.2)
 
     async def test_slash_filter_tab_escape_and_keyboard_model_selection(self):
@@ -205,7 +205,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
             settings = [p for m, p in client.calls if m == "thread/settings/update"][-1]
             self.assertEqual(settings["collaborationMode"]["settings"]["model"], "demo-reasoner")
             self.assertEqual(settings["collaborationMode"]["mode"], "plan")
-            await pilot.press("left", "up", "enter")
+            await pilot.press("left", "up", "up", "up", "enter")
             await pilot.pause(.2)
             self.assertNotEqual(app.current, current)
             self.assertNotEqual(app.store.get(app.current).meta.get("model"), "demo-reasoner")

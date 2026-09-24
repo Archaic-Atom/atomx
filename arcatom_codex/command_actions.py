@@ -382,7 +382,6 @@ class CommandActions:
             if not text:
                 raise RpcError(tr('当前会话还没有完整回复可复制。'))
             self.copy_to_clipboard(text)
-            self.notify(tr('已发送到终端剪贴板。'))
         elif name == "export":
             await self.export_chat(session, argument)
         elif name == "diff":

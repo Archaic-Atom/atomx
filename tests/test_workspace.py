@@ -82,6 +82,11 @@ class WorkspaceStateTests(unittest.TestCase):
 
 
 class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        clipboard = patch("arcatom_codex.ui.copy_text", return_value=True)
+        self.copy_writer = clipboard.start()
+        self.addCleanup(clipboard.stop)
+
     async def test_escape_browse_double_arrows_and_enter_to_edit_without_sending(self):
         client = DemoClient()
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
@@ -147,7 +152,7 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.press("pageup", "left")
             self.assertIsNone(app.current)
             self.assertEqual(session.draft, "unsent draft")
-            await pilot.press("down", "enter")
+            await pilot.press("down", "down", "enter")
             await pilot.pause(.2)
             self.assertEqual(sum(m == "thread/start" for m, _ in client.calls), 1)
 
@@ -191,7 +196,7 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
-            await pilot.press("down", "enter")
+            await pilot.press("down", "down", "enter")
             await pilot.pause(.2)
             session = app.store.get(app.current)
             path = str(Path(__file__).resolve().parents[1] / "arcatom_codex/assets/logo-dark.png")
@@ -293,6 +298,8 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
             options = app.query_one("#sessions", OptionList)
             self.assertEqual(sum(options.get_option_at_index(i).disabled
                                  for i in range(options.option_count)), 3)
+            self.assertIsNone(options.highlighted)
+            await pilot.press("down")
             app.store.event("turn/started", {"threadId": "demo-dashboard", "turn": {"id": "t"}})
             app.paint(force=True)
             self.assertEqual(options.get_option_at_index(options.highlighted).id, "demo-login")

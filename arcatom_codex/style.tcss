@@ -1,14 +1,14 @@
 Screen { background: $arc-background; color: $arc-foreground; }
 ArcatomApp { background: $arc-background; }
-#brand { height: 3; padding: 0 2; }
+#brand { height: 3; padding: 0 2; margin-top: 1; }
 #connection { height: 1; padding: 0 2; color: $arc-muted; }
 #view { height: 1fr; padding: 0 2; }
 .muted { color: $arc-muted; }
 #overview { height: 1; color: $arc-accent; }
 Input { background: $arc-surface; border: tall $arc-border; color: $arc-foreground; }
 Input:focus { border: tall $arc-accent; }
-#search { height: 1; min-height: 1; border: none; padding: 0 1; margin: 0 0 1 0; }
-#search:focus { border: none; background: $arc-selection; }
+#search { height: 3; min-height: 3; border: round $arc-border; padding: 0 1; margin: 0 0 1 0; }
+#search:focus { border: round $arc-accent; background: $arc-selection; }
 OptionList { background: $arc-background; border: none; padding: 0; }
 OptionList > .option-list--option { padding: 0 1; }
 OptionList > .option-list--option-highlighted { background: $arc-selection; color: $arc-foreground; text-style: none; }
@@ -24,8 +24,8 @@ OptionList:focus > .option-list--option-highlighted { background: $arc-selection
 #activity-summary { height: 1; padding-top: 0; color: $arc-accent; }
 #activities { height: auto; max-height: 9; border-left: solid $arc-border; margin-bottom: 1; }
 #activities > .option-list--option { padding: 0 1; }
-#composer { height: 3; min-height: 3; border: none; background: $arc-surface; color: $arc-foreground; padding: 0 1; }
-#composer:focus { border: none; }
+#composer { height: 4; min-height: 3; border: round $arc-border; background: $arc-surface; color: $arc-foreground; padding: 0 1; }
+#composer:focus { border: round $arc-accent; }
 #chat-hint { height: 1; }
 ModalScreen { align: center middle; background: #000000 60%; }
 #dialog { width: 85%; max-width: 110; height: 85%; background: $arc-surface; border: round $arc-accent; padding: 1 2; }
@@ -62,8 +62,11 @@ Screen.compact .command-menu { max-height: 6; }
 Screen.compact #home-actions { margin-bottom: 0; }
 Screen.compact #search { margin-bottom: 0; }
 Screen.compact #home-hint { height: 1; padding-top: 0; }
-Screen.chat-view #brand { height: 1; }
+Screen.chat-view #brand { height: 1; margin-top: 0; }
 Select { background: $arc-surface; color: $arc-foreground; }
 SelectCurrent { background: $arc-surface; color: $arc-foreground; }
 
 #attachments { height: auto; max-height: 2; color: $arc-accent; }
+
+DirectoryInput:focus { border: round $arc-accent; }
+DirectoryInput.editing { background: $arc-selection; }

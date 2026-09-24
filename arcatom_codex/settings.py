@@ -4,6 +4,7 @@ from pathlib import Path
 
 from rich.text import Text
 from textual import on
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Select, Static, Switch
@@ -11,10 +12,46 @@ from textual.widgets import Button, Input, Select, Static, Switch
 from .appearance import ACCENTS, PALETTES, palette_for
 
 
+class DirectoryInput(Input):
+    """Enter edits the directory; Escape discards that field's uncommitted edit."""
+
+    editing = False
+    previous_value = ""
+
+    async def _on_key(self, event):
+        if not self.editing and event.is_printable:
+            event.stop()
+            event.prevent_default()
+            return
+        await super()._on_key(event)
+
+    def check_action(self, action, parameters):
+        if not self.editing and (action.startswith("delete") or action in ("paste", "cut")):
+            return False
+        return True
+
+    def action_submit(self):
+        if self.editing:
+            self.editing = False
+        else:
+            self.previous_value = self.value
+            self.editing = True
+        self.set_class(self.editing, "editing")
+
+    def on_blur(self):
+        self.editing = False
+        self.remove_class("editing")
+
+
 class Settings(ModalScreen[dict | None]):
     """Edit a copy; the application persists only on Save. 保存前只预览。"""
 
-    BINDINGS = [("escape", "cancel", tr('取消')), ("ctrl+s", "save", tr('保存'))]
+    BINDINGS = [Binding("escape", "cancel", tr('取消')),
+                Binding("ctrl+s", "save", tr('保存')),
+                Binding("up", "move_setting(-1)", show=False, priority=True),
+                Binding("down", "move_setting(1)", show=False, priority=True)]
+    FIELDS = ("language", "approve-for-me", "ui-theme", "accent", "follow-output",
+              "compact-layout", "default-cwd", "save-settings", "cancel-settings")
 
     def __init__(self, preferences: dict, cwd: str):
         super().__init__()
@@ -49,7 +86,7 @@ class Settings(ModalScreen[dict | None]):
                     yield Static(tr('始终使用紧凑布局'))
                     yield Switch(self.values.get("compact", False), id="compact-layout")
                 yield Static(tr('新会话默认目录 · 留空沿用当前目录'), classes="setting-label")
-                yield Input(self.values.get("default_cwd", ""), placeholder=self.cwd,
+                yield DirectoryInput(self.values.get("default_cwd", ""), placeholder=self.cwd,
                             id="default-cwd")
                 yield Static(tr('更多：/model 模型 · /statusline 状态栏 · /theme 代码高亮'),
                              classes="muted")
@@ -60,6 +97,16 @@ class Settings(ModalScreen[dict | None]):
     def on_mount(self):
         self.preview()
         self.query_one("#language").focus()
+
+    def check_action(self, action, parameters):
+        if action == "move_setting":
+            return not any(select.expanded for select in self.query(Select))
+        return True
+
+    def action_move_setting(self, direction):
+        current = self.focused.id if self.focused else None
+        index = self.FIELDS.index(current) if current in self.FIELDS else -1
+        self.query_one("#" + self.FIELDS[(index + direction) % len(self.FIELDS)]).focus()
 
     def preview(self):
         """Apply semantic colors without writing the preference file. 仅预览。"""
@@ -100,6 +147,17 @@ class Settings(ModalScreen[dict | None]):
         self.dismiss(self.values)
 
     def action_cancel(self):
+        for select in self.query(Select):
+            if select.expanded:
+                select.expanded = False
+                select.focus()
+                return
+        directory = self.query_one("#default-cwd", DirectoryInput)
+        if directory.has_focus and directory.editing:
+            directory.value = directory.previous_value
+            directory.editing = False
+            directory.remove_class("editing")
+            return
         self.dismiss(None)
 
     @on(Button.Pressed, "#save-settings")

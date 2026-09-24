@@ -39,6 +39,10 @@ arcatom --check  # 验证本机连接，不发送模型请求
 
 ## 操作
 
+首页 `↑↓` 在按钮、输入框和会话列表间移动唯一焦点；第一条会话按 `↑` 回到输入框。空输入框 `Enter` 新建。聊天输入框选中后直接打字或按 `Enter` 即可编辑。
+
+聊天内容用鼠标拖选后松开即可复制，也支持 `Ctrl+C` / `F3`；未选中文字时 `F3` 复制最近回复。演示模式同样支持系统剪贴板；系统复制失败会提示终端回退，不会显示复制成功。
+
 在聊天输入框或首页搜索框输入 `/`，立即出现命令提示。继续输入可筛选，`↑↓` 选择，`Tab` 补全命令，`Enter` 执行，`Esc` 收起。
 
 `/model` 打开后端实时模型列表，选择模型后再选择推理强度；确认成功才更新状态栏，从下一回合生效。仅修改当前会话，保留其他会话的模型。`/reasoning` 可单独调整强度。
@@ -109,7 +113,9 @@ arcatom --check  # 验证本机连接，不发送模型请求
 
 会话计数跟随事件更新，账户数据每分钟刷新一次，`Ctrl+R` 可手动刷新。输入、输出、缓存及账户累计明细可按 `Ctrl+U` 查看。
 
-`F2` 打开设置：英文 / 中文、暖沙 / 午夜蓝 / 松林 / 纸白配色、强调色、自动跟随输出、紧凑布局和新会话默认目录；取消会撤销配色预览。`/statusline` 可调整字段与顺序，`/title` 配置终端标题，`/theme` 选择代码语法高亮主题。这些显示偏好保存到 `~/.config/arcatom/preferences.json`，演示模式不会读写此文件。
+设置中 `↑↓` 移动焦点，`Enter` 展开选项，再用 `↑↓` 选择、`Enter` 确认；`Esc` 先收起选项，再退出设置。目录字段也是按 `Enter` 开始编辑，`Esc` 撤销本次字段编辑；`Ctrl+S` 保存整页。
+
+`F2` 打开设置：英文 / 中文、暖沙 / 午夜蓝 / 松林 / 石墨灰 / 纸白配色、强调色、自动跟随输出、紧凑布局和新会话默认目录；取消会撤销配色预览。`/statusline` 可调整字段与顺序，`/title` 配置终端标题，`/theme` 选择代码语法高亮主题。这些显示偏好保存到 `~/.config/arcatom/preferences.json`，演示模式不会读写此文件。
 
 - 账户累计、最近每日用量和额度窗口来自 `account/usage/read`、`account/rateLimits/read`；是否可用取决于登录方式和后端。
 - 当前会话计数来自 `thread/tokenUsage/updated`。
@@ -136,6 +142,7 @@ arcatom --check  # 验证本机连接，不发送模型请求
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/python scripts/live_check.py
+.venv/bin/python scripts/clipboard_check.py  # macOS 剪贴板读写验证，恢复原内容
 .venv/bin/python scripts/live_check.py --commands  # 临时会话内验证模型 / 设置 API，不调用模型
 .venv/bin/python scripts/live_check.py --native    # 原生界面或信任提示及返回；不批准信任
 # 可选：真实模型最小临时会话测试，会产生少量用量

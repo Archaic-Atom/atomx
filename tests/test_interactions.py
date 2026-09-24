@@ -86,7 +86,7 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause(.2)
-            await pilot.press("down", "ctrl+x", "ctrl+x")
+            await pilot.press("down", "down", "ctrl+x", "ctrl+x")
             await asyncio.wait_for(client.entered.wait(), 2)
             self.assertIn("demo-dashboard", app.store.sessions)
             client.release.set()
@@ -102,7 +102,7 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
-            await pilot.press("down", "ctrl+x")
+            await pilot.press("down", "down", "ctrl+x")
             client.release.set()
             await pilot.pause(.2)
             self.assertIn("demo-dashboard", app.store.sessions)
@@ -113,7 +113,7 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause(.2)
-            await pilot.press("down", "enter")
+            await pilot.press("down", "down", "enter")
             await pilot.pause(.2)
             composer = app.query_one(Composer)
             composer.load_text("测试发送")
@@ -142,7 +142,7 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
-            await pilot.press("down", "enter")
+            await pilot.press("down", "down", "enter")
             await pilot.pause(.2)
             app.query_one(Composer).load_text("保留这条消息")
             await pilot.press("enter")

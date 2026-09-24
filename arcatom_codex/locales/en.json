@@ -314,5 +314,9 @@
   "输入框已选中 · Enter 编辑 · ↑ 浏览 · Esc / ← 首页": "Input selected · Enter edit · ↑ browse · Esc / ← home",
   "浏览 · ↑↓ 滚动 · ↑↑ 顶部 · ↓↓ 底部 · ↓ 回输入框 · Esc / ← 首页": "Browsing · ↑↓ scroll · ↑↑ top · ↓↓ bottom · ↓ input · Esc / ← home",
   "代我审批 · Approve for me": "Approve for me · Auto-review",
-  "开启：Codex 自动审查权限请求；关闭：人工确认。保存后用于新建、恢复及后续回合，保留沙箱限制。": "On: Codex reviews approval requests. Off: ask you. Applies after Save to new/resumed sessions and subsequent turns; sandbox limits remain."
+  "开启：Codex 自动审查权限请求；关闭：人工确认。保存后用于新建、恢复及后续回合，保留沙箱限制。": "On: Codex reviews approval requests. Off: ask you. Applies after Save to new/resumed sessions and subsequent turns; sandbox limits remain.",
+  "石墨灰": "Graphite",
+  "已复制到系统剪贴板。": "Copied to the system clipboard.",
+  "系统剪贴板不可用，已尝试终端复制；请检查终端剪贴板权限。": "System clipboard unavailable; terminal copy requested. Check terminal clipboard permissions.",
+  "输入框已选中 · 直接输入 / Enter 编辑 · ↑ 浏览 · Esc / ← 首页": "Input selected · Type / Enter to edit · ↑ Browse · Esc / ← Home"
 }

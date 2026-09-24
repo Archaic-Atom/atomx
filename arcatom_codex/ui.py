@@ -14,6 +14,7 @@ from rich.text import Text
 from textual import events, on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.content import Content
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.message import Message
 from textual.screen import ModalScreen
@@ -95,6 +96,8 @@ class Composer(TextArea):
         return True
 
     async def _on_key(self, event: events.Key):
+        if self.read_only and event.is_printable:
+            self.app.focus_composer(edit=True)
         if self.read_only:
             if event.key == "enter":
                 self.app.focus_composer(edit=True)
@@ -159,14 +162,68 @@ class SessionSearch(Input):
         if event.key in ("up", "down"):
             event.stop()
             event.prevent_default()
-            options = self.app.query_one("#sessions", OptionList)
-            self.app.home_selection_active = True
-            if event.key == "up":
-                options.action_cursor_up()
-            else:
-                options.action_cursor_down()
+            self.app.move_home_focus(-1 if event.key == "up" else 1)
         else:
             await super()._on_key(event)
+
+
+class HomeButton(Button):
+    BINDINGS = [Binding("up", "home_focus(-1)", show=False),
+                Binding("down", "home_focus(1)", show=False)]
+
+    def action_home_focus(self, direction):
+        self.app.move_home_focus(direction)
+
+
+class SessionList(OptionList):
+    """The highlighted row belongs only to the focused list."""
+
+    def selectable_indices(self):
+        return [i for i in range(self.option_count) if not self.get_option_at_index(i).disabled]
+
+    def on_focus(self):
+        if self.highlighted is None:
+            self.highlighted = next(iter(self.selectable_indices()), None)
+
+    def on_blur(self):
+        self.highlighted = None
+
+    def move(self, direction):
+        indices = self.selectable_indices()
+        if self.highlighted not in indices:
+            self.app.query_one("#search").focus()
+            return
+        index = indices.index(self.highlighted) + direction
+        if 0 <= index < len(indices):
+            self.highlighted = indices[index]
+        else:
+            self.app.move_home_focus(direction)
+
+    def action_cursor_up(self):
+        self.move(-1)
+
+    def action_cursor_down(self):
+        self.move(1)
+
+
+class SelectableTranscript(Static):
+    """Preserve Rich formatting while exposing real text selection coordinates."""
+
+    def render(self):
+        width = max(1, self.content_size.width)
+        key = (id(self.content), width)
+        if getattr(self, "_selection_cache_key", None) != key:
+            text = Text()
+            for segment in self.app.console.render(
+                    self.content, self.app.console.options.update(width=width, highlight=False)):
+                if not segment.control:
+                    text.append(segment.text, segment.style)
+            self._selection_content = Content.from_rich_text(text, console=self.app.console)
+            self._selection_cache_key = key
+        return self._selection_content
+
+    def on_resize(self):
+        self.refresh(layout=True)
 
 
 class TranscriptScroll(VerticalScroll):
@@ -381,7 +438,6 @@ class ArcatomApp(CommandActions, App):
         theme = self.view_preferences.get("code_theme", "monokai")
         self.code_theme = theme if isinstance(theme, str) and theme in set(get_all_styles()) else "monokai"
         self.native_active = False
-        self.home_selection_active = False
         self.pasting = False
         self.creating = False
         self.last_navigation_key = None
@@ -449,8 +505,18 @@ class ArcatomApp(CommandActions, App):
 
     def copy_to_clipboard(self, text: str) -> None:
         super().copy_to_clipboard(text)
-        if not self.demo:
-            self.launch(asyncio.to_thread(copy_text, text))
+        async def write():
+            copied = await asyncio.to_thread(copy_text, text)
+            if copied:
+                self.notify(tr('已复制到系统剪贴板。'))
+            else:
+                self.notify(tr('系统剪贴板不可用，已尝试终端复制；请检查终端剪贴板权限。'), severity="warning")
+        self.launch(write())
+
+    def on_text_selected(self, event: events.TextSelected):
+        text = self.screen.get_selected_text()
+        if text:
+            self.copy_to_clipboard(text)
 
     def action_copy_selection(self):
         focused = self.screen.focused
@@ -460,7 +526,6 @@ class ArcatomApp(CommandActions, App):
                 self.store.get(self.current).items.values())) if i.get("type") == "agentMessage"), "")
         if text:
             self.copy_to_clipboard(text)
-            self.notify(tr('已复制。没有选择文字时，F3 复制最近回复。'))
         else:
             self.notify(tr('请先选择文字，或打开一段已有回复的会话。'))
 
@@ -483,6 +548,7 @@ class ArcatomApp(CommandActions, App):
                 session.attachments.extend(content.images)
                 if content.text:
                     if self.current == tid:
+                        self.focus_composer(edit=True)
                         self.query_one(Composer).insert(content.text)
                     else:
                         session.draft += content.text
@@ -530,7 +596,7 @@ class ArcatomApp(CommandActions, App):
         if not composer.read_only:
             hint = tr("编辑 · Esc 浏览 · ↑↓ 历史输入 · Ctrl+J 换行 · F3 复制 · F2 设置")
         elif composer.has_focus:
-            hint = tr("输入框已选中 · Enter 编辑 · ↑ 浏览 · Esc / ← 首页")
+            hint = tr("输入框已选中 · 直接输入 / Enter 编辑 · ↑ 浏览 · Esc / ← 首页")
         else:
             hint = tr("浏览 · ↑↓ 滚动 · ↑↑ 顶部 · ↓↓ 底部 · ↓ 回输入框 · Esc / ← 首页")
         self.query_one("#chat-hint", Static).update(hint)
@@ -581,17 +647,17 @@ class ArcatomApp(CommandActions, App):
             with Vertical(id="home"):
                 yield Static("", id="overview", markup=False)
                 with Horizontal(id="home-actions"):
-                    yield Button(tr('＋ 新会话 · Ctrl+N'), id="new-session")
-                    yield Button(tr('设置 / 调色板 · F2'), id="settings")
+                    yield HomeButton(tr('＋ 新会话 · Ctrl+N'), id="new-session")
+                    yield HomeButton(tr('设置 / 调色板 · F2'), id="settings")
                 yield SessionSearch(placeholder=tr('⌕  搜索会话名称或工作目录…'), id="search")
                 yield OptionList(id="home-commands", classes="command-menu")
-                yield OptionList(id="sessions")
+                yield SessionList(id="sessions")
                 yield Static(tr('Enter 新建 · ↑↓ 历史 · Ctrl+X 删除 · Ctrl+N 目录 · F2 设置'), id="home-hint", classes="muted")
             with Vertical(id="chat"):
                 yield Static("", id="chat-title", markup=False)
                 yield Static("", id="chat-path", markup=False, classes="muted")
                 with TranscriptScroll(id="transcript-scroll"):
-                    yield Static("", id="transcript", markup=False)
+                    yield SelectableTranscript("", id="transcript", markup=False)
                 yield Static("", id="waiting", markup=False)
                 yield Static("", id="activity-summary", markup=False)
                 yield OptionList(id="activities")
@@ -820,7 +886,7 @@ class ArcatomApp(CommandActions, App):
         if not self.ready or self.current is not None or self.screen is not self.main_screen:
             return
         options = self.query_one("#sessions", OptionList)
-        if options.highlighted is None or not options.option_count:
+        if not options.has_focus or options.highlighted is None or not options.option_count:
             return
         tid = options.get_option_at_index(options.highlighted).id
         if tid not in self.store.sessions:
@@ -844,7 +910,7 @@ class ArcatomApp(CommandActions, App):
             self.store.remove_thread(tid)
             self.paint_sessions()
             options = self.query_one("#sessions", OptionList)
-            if options.option_count:
+            if options.has_focus and options.option_count:
                 options.highlighted = min(index, options.option_count - 1)
             self.paint_status()
             self.notify(tr('已删除：') + title[:50])
@@ -874,12 +940,14 @@ class ArcatomApp(CommandActions, App):
             for session in members:
                 options.add_option(Option(session_row(session, width, self.palette,
                                                       session.id in self.deleting), id=session.id))
-        if selected:
+        if not options.has_focus:
+            options.highlighted = None
+        elif selected:
             for i in range(options.option_count):
                 if options.get_option_at_index(i).id == selected:
                     options.highlighted = i
                     break
-        if options.highlighted is None or options.get_option_at_index(options.highlighted).disabled:
+        if options.has_focus and (options.highlighted is None or options.get_option_at_index(options.highlighted).disabled):
             options.highlighted = next((i for i in range(options.option_count)
                                         if not options.get_option_at_index(i).disabled), None)
         lifetime = self.store.account_usage.get("summary", {}).get("lifetimeTokens")
@@ -970,7 +1038,6 @@ class ArcatomApp(CommandActions, App):
 
     @on(Input.Changed, "#search")
     def search(self):
-        self.home_selection_active = False
         self.paint_sessions()
 
     @on(Input.Submitted, "#search")
@@ -979,15 +1046,14 @@ class ArcatomApp(CommandActions, App):
         if value.startswith("/"):
             self.launch(self.home_command(value))
             return
-        if not value.strip() and not self.home_selection_active:
+        if not value.strip():
             if self.ready:
                 self.launch(self.create_session(self.view_preferences.get("default_cwd") or self.cwd))
             return
         options = self.query_one("#sessions", OptionList)
-        if options.highlighted is not None:
-            tid = options.get_option_at_index(options.highlighted).id
-            if tid in self.store.sessions:
-                self.launch(self.open_session(tid))
+        index = next(iter(options.selectable_indices()), None)
+        if index is not None:
+            self.launch(self.open_session(options.get_option_at_index(index).id))
 
     @on(OptionList.OptionSelected, "#sessions")
     def choose_session(self, event):
@@ -1027,12 +1093,25 @@ class ArcatomApp(CommandActions, App):
     def back(self):
         self.show_home()
 
+    def move_home_focus(self, direction):
+        """Follow visual order through home actions, input and session rows."""
+        options = self.query_one("#sessions", SessionList)
+        fields = ["new-session", "settings", "search"]
+        if options.selectable_indices():
+            fields.append("sessions")
+        current = self.screen.focused.id if self.screen.focused else "search"
+        index = fields.index(current) if current in fields else fields.index("search")
+        target = self.query_one("#" + fields[(index + direction) % len(fields)])
+        target.focus()
+        if target is options:
+            indices = options.selectable_indices()
+            options.highlighted = indices[0 if direction > 0 else -1]
+
     def show_home(self):
         if self.current:
             self.store.get(self.current).draft = self.query_one("#composer", Composer).text
         self.query_one("#view", ContentSwitcher).current = "home"
         self.current = None
-        self.home_selection_active = False
         self.hide_commands()
         self.query_one("#search").focus()
         self.paint(force=True)
@@ -1360,7 +1439,9 @@ class ArcatomApp(CommandActions, App):
             self.hide_commands()
         elif self.screen is not self.main_screen:
             # Let the modal handle Esc; never close an approval as accepted.
-            if isinstance(self.screen, Approval):
+            if isinstance(self.screen, Settings):
+                self.screen.action_cancel()
+            elif isinstance(self.screen, Approval):
                 self.screen.dismiss(False)
             else:
                 self.screen.dismiss(None)
