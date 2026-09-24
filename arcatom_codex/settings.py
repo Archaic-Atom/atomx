@@ -110,10 +110,10 @@ class Settings(ModalScreen[dict | None]):
 
     def preview(self):
         """Apply semantic colors without writing the preference file. 仅预览。"""
-        palette = palette_for(self.values)
         self.app.apply_appearance(self.values)
-        text = Text(tr('  正文  '), style=palette.foreground + " on " + palette.background)
-        text.append(tr('  你的消息  '), "bold " + palette.foreground + " on " + palette.user)
+        palette = self.app.palette
+        text = Text(tr('  正文  '), style=palette.foreground)
+        text.append(tr('  你的消息  '), "bold " + palette.foreground)
         text.append(tr('  强调色  '), palette.accent)
         self.query_one("#palette-preview", Static).update(text)
 

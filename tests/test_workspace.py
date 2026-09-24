@@ -1,6 +1,7 @@
 """Workspace behavior across themes, keyboard focus and operating systems."""
 import asyncio
 import ast
+from dataclasses import replace
 import os
 from pathlib import Path
 import tempfile
@@ -238,7 +239,8 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
                 for name in PALETTES:
                     app.screen.query_one("#ui-theme", Select).value = name
                     await pilot.pause(.05)
-                    self.assertEqual(app.palette, palette_for({"ui_theme": name}))
+                    self.assertEqual(app.palette, replace(palette_for({"ui_theme": name}),
+                                                          foreground="default"))
                 app.screen.query_one("#accent", Select).value = "violet"
                 app.screen.query_one("#follow-output", Switch).value = False
                 app.screen.query_one("#default-cwd", Input).value = directory

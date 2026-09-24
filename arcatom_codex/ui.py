@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .i18n import tr
 import asyncio
+from dataclasses import replace
 import json
 from pathlib import Path
 import time
@@ -28,7 +29,7 @@ from .personal import bridge_instructions, discover_skills, turn_context
 from .commands import matches, BY_NAME
 from .command_actions import CommandActions
 from .preferences import read_preferences, approval_defaults
-from .appearance import PALETTES, palette_for, brand
+from .appearance import palette_for, brand
 from .settings import Settings
 from .clipboard import copy_text, read_clipboard, import_image
 from .pickers import Prompt
@@ -56,7 +57,7 @@ def pretty(item: dict, code_theme="monokai", palette=None):
     if kind == "userMessage":
         text = "\n".join(c.get("text", tr('[图片或附件]')) for c in item.get("content", []))
         return Group(Padding(Text(tr('❯ 你\n') + clean(text), style="bold " + palette.foreground),
-                             (0, 1), style="on " + palette.user), Text(""))
+                             (0, 1)), Text(""))
     if kind in ("agentMessage", "plan"):
         return Group(Text("✦ Codex" if kind == "agentMessage" else tr('◇ 计划'), style=palette.accent),
                      RichMarkdown(clean(item.get("text")), code_theme=code_theme), Text(""))
@@ -178,8 +179,20 @@ class Composer(TextArea):
         maximum = max(3, self.parent.content_size.height - reserved - 3)
         height = min(maximum, max(3, self.wrapped_document.height + 2))
         if self.region.height != height:
+            scroll = self.app.query_one("#transcript-scroll", VerticalScroll)
+            follow = (self.app.view_preferences.get("follow_output", True)
+                      and not scroll.has_focus and scroll.is_vertical_scroll_end)
+            session_id = self.app.current
             self.styles.height = height
-            self.call_after_refresh(self.scroll_cursor_visible)
+            # Restore the bottom after the new viewport is laid out. 布局后保持日志底部。
+            def settle_layout():
+                if self.app.current != session_id:
+                    return
+                self.scroll_cursor_visible()
+                if follow and not scroll.has_focus:
+                    scroll.scroll_end(animate=False, immediate=True)
+                scroll.refresh()
+            self.call_after_refresh(settle_layout)
 
     def action_cursor_left(self):
         if self.text == "":
@@ -512,8 +525,10 @@ class ArcatomApp(CommandActions, App):
         self.appearance_preferences = dict(preferences)
         self.palette = palette_for(preferences)
         theme = self.palette.theme()
-        if self.palette.label == PALETTES["gray"].label:
-            theme.variables["arc-background"] = "ansi_default"
+        for variable in ("arc-background", "arc-surface", "arc-foreground"):
+            theme.variables[variable] = "ansi_default"
+        # Keep terminal text readable with light and dark profiles. 文字跟随终端配色。
+        self.palette = replace(self.palette, foreground="default")
         theme.name = "arcatom-" + self.palette.label + self.palette.accent.lstrip("#")
         self.register_theme(theme)
         self.theme = theme.name
@@ -986,8 +1001,8 @@ class ArcatomApp(CommandActions, App):
         """Animate only the selected row without changing focus. 仅滚动选中目录。"""
         if self.current or self.screen is not self.main_screen:
             return
-        options = self.query_one("#sessions", OptionList)
-        if options.has_focus and self.marquee_tid:
+        options = next(iter(self.query(SessionList)), None)
+        if options is not None and options.has_focus and self.marquee_tid:
             self.marquee_step += 1
             self.redraw_directory(self.marquee_tid, self.marquee_step)
 

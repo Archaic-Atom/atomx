@@ -4,7 +4,6 @@ import time
 
 from rich.cells import cell_len
 from rich.console import Group
-from rich.padding import Padding
 from rich.text import Text
 
 from .appearance import Palette
@@ -17,8 +16,7 @@ def section_heading(label: str, count: int, color: str, palette: Palette,
     """Separate groups visually without making headings selectable. 分区不可选中。"""
     heading = Text.assemble((" " + label + "  ", "bold " + color),
                             (str(count), palette.muted))
-    band = Padding(heading, (0, 0), style="on " + palette.surface)
-    return band if first else Group(Text(""), band)
+    return heading if first else Group(Text(""), heading)
 
 
 def column_widths(width: int) -> tuple[int, int, int, int]:

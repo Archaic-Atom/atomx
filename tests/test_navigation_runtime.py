@@ -6,6 +6,8 @@ import unittest
 from unittest.mock import patch
 
 from textual.widgets import OptionList
+from textual.widgets._toast import Toast
+from textual.notifications import Notification
 
 from arcatom_codex.demo import DemoClient
 from arcatom_codex.settings import Settings
@@ -75,7 +77,7 @@ class NavigationRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(app.stop_requested)
             self.assertIsNone(app.store.get(app.current).active_turn)
 
-    async def test_graphite_preserves_terminal_default_background(self):
+    async def test_all_themes_preserve_terminal_background_on_surfaces(self):
         with patch.dict(os.environ):
             os.environ.pop("NO_COLOR", None)
             app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
@@ -91,12 +93,39 @@ class NavigationRuntimeTests(unittest.IsolatedAsyncioTestCase):
             segments = [segment for line in update.strips for strip in line for segment in strip]
             self.assertTrue(any(segment.style and segment.style.bgcolor and
                                 segment.style.bgcolor.is_default for segment in segments))
-            app.apply_appearance({"ui_theme": "paper"})
-            await pilot.pause(.2)
-            self.assertFalse(app.screen.styles.background.rich_color.is_default)
-            app.apply_appearance({"ui_theme": "gray"})
-            await pilot.pause(.2)
-            self.assertTrue(app.screen.styles.background.rich_color.is_default)
+            # Headless Textual omits the toast rack; mount its real widget directly.
+            # 无窗口测试不创建通知容器，直接挂载真实提示组件。
+            await app.screen.mount(Toast(Notification("Restart arcatom to apply", timeout=30)))
+            for theme in ("paper", "warm", "midnight", "forest", "gray"):
+                app.apply_appearance({"ui_theme": theme})
+                await pilot.pause(.1)
+                for widget in (app.screen, *app.query("#sessions, #search, #bottom, #composer, Toast")):
+                    self.assertTrue(widget.styles.background.rich_color.is_default,
+                                    (theme, widget))
+                # Check real painted surfaces, including the notification's border.
+                # 检查实际绘制的输入框和提示，避免仅改 CSS 而遗漏内部样式。
+                for selector in ("#search", "#bottom", "Toast"):
+                    widget = app.query_one(selector)
+                    for strip in widget.render_lines(widget.size.region):
+                        for segment in strip:
+                            background = segment.style.bgcolor if segment.style else None
+                            self.assertTrue(background is None or background.is_default,
+                                            (theme, selector, segment))
+                await app.open_session("demo-dashboard")
+                await pilot.pause(.1)
+                composer = app.query_one(Composer)
+                composer.cursor_blink = False
+                composer.load_text("first line\nsecond line")
+                await pilot.pause(.1)
+                filled_cells = 0
+                for strip in composer.render_lines(composer.size.region):
+                    for segment in strip:
+                        background = segment.style.bgcolor if segment.style else None
+                        if background and not background.is_default:
+                            filled_cells += segment.cell_length
+                self.assertLessEqual(filled_cells, 1, (theme, "only the caret may be filled"))
+                app.show_home()
+                await pilot.pause(.1)
 
     async def test_twelve_agents_are_individually_accessible_and_update_status(self):
         client = DemoClient()
