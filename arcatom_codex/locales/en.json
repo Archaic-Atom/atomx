@@ -301,7 +301,7 @@
   "可选问题": "optional question",
   "可选 reset": "optional reset",
   "可选文件路径": "optional file path",
-  "目录": "directory",
+  "目录": "Directory",
   "可选 verbose": "optional verbose",
   "可选提示": "optional hint",
   "可选 settings": "optional settings",
@@ -326,5 +326,8 @@
   "会话记录加载失败：": "Unable to load messages: ",
   "↑↓ 选择会话 · Enter 打开 · 打字搜索 · Ctrl+N 新建 · F2 设置": "↑↓ Sessions · Enter Open · Type to search · Ctrl+N New · F2 Settings",
   "Esc 停止任务 · Ctrl+C 复制 · Ctrl+T 代理与进程": "Esc Stop task · Ctrl+C Copy · Ctrl+T Agents & processes",
-  "3 秒内再按一次 Ctrl+X，永久删除「{0}」；其他操作取消。": "Press Ctrl+X again within 3 seconds to permanently delete “{0}”; any other action cancels."
+  "3 秒内再按一次 Ctrl+X，永久删除「{0}」；其他操作取消。": "Press Ctrl+X again within 3 seconds to permanently delete “{0}”; any other action cancels.",
+  "标题": "Title",
+  "摘要": "Summary",
+  "最后处理": "Last active"
 }

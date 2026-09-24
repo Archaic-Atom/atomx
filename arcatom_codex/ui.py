@@ -19,7 +19,7 @@ from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Button, ContentSwitcher, Input, OptionList, Static, TextArea
-from textual.widgets.option_list import Option
+from textual.widgets.option_list import Option, OptionDoesNotExist
 
 from .rpc import CodexClient, RpcError
 from .state import Store, Session, clean, number, rollout_usage
@@ -32,7 +32,7 @@ from .appearance import PALETTES, palette_for, brand
 from .settings import Settings
 from .clipboard import copy_text, read_clipboard, import_image
 from .pickers import Prompt
-from .home_list import section_heading, session_row
+from .home_list import section_heading, session_row, session_header
 
 
 def command_summary(command: str | None) -> str:
@@ -161,7 +161,25 @@ class Composer(TextArea):
         self.app.focus_composer(edit=True)
 
     def action_newline(self):
-        self.insert("\n")
+        if self.read_only:
+            self.app.focus_composer(edit=True)
+        self.replace("\n", *self.selection, maintain_selection_offset=False)
+        self.call_after_refresh(self.fit_height)
+
+    def on_resize(self):
+        self.call_after_refresh(self.fit_height)
+
+    def fit_height(self):
+        """Grow to fit wrapped input within available space. 按可用空间展开输入。"""
+        if not self.is_mounted or not self.parent or not self.parent.display:
+            return
+        reserved = sum(widget.outer_size.height for widget in self.parent.children
+                       if widget is not self and widget.id != "transcript-scroll" and widget.display)
+        maximum = max(3, self.parent.content_size.height - reserved - 3)
+        height = min(maximum, max(3, self.wrapped_document.height + 2))
+        if self.region.height != height:
+            self.styles.height = height
+            self.call_after_refresh(self.scroll_cursor_visible)
 
     def action_cursor_left(self):
         if self.text == "":
@@ -429,6 +447,8 @@ class ArcatomApp(CommandActions, App):
         self.stop_requested: set[str] = set()
         self.interrupting: set[str] = set()
         self.home_selection: str | None = None
+        self.marquee_tid: str | None = None
+        self.marquee_step = 0
         self.last_revision = -1
         self.requests = asyncio.Queue()
         self.activity_targets = {}
@@ -693,6 +713,7 @@ class ArcatomApp(CommandActions, App):
                 with Horizontal(id="home-actions"):
                     yield HomeButton(tr('＋ 新会话 · Ctrl+N'), id="new-session")
                     yield HomeButton(tr('设置 / 调色板 · F2'), id="settings")
+                yield Static("", id="session-columns")
                 yield SessionList(id="sessions")
                 yield OptionList(id="home-commands", classes="command-menu")
                 yield SessionSearch(placeholder=tr('⌕  搜索会话名称或工作目录…'), id="search")
@@ -724,6 +745,7 @@ class ArcatomApp(CommandActions, App):
         self.query_one("#older-history").display = False
         self.query_one("#sessions").focus()
         self.set_interval(0.15, self.paint)
+        self.set_interval(.35, self.advance_directory)
         self.run_worker(self.connect(), name="connect", exit_on_error=False)
 
     def on_resize(self, event: events.Resize):
@@ -733,6 +755,8 @@ class ArcatomApp(CommandActions, App):
             self.paint_status()
             if not self.current:
                 self.call_after_refresh(self.paint_sessions)
+            else:
+                self.call_after_refresh(self.query_one(Composer).fit_height)
 
     async def connect(self):
         try:
@@ -939,7 +963,33 @@ class ArcatomApp(CommandActions, App):
                     if options.highlighted is not None and options.option_count else None)
         if self.delete_confirmation and self.delete_confirmation[0] != selected:
             self.delete_confirmation = None
+        if self.marquee_tid != selected:
+            previous = self.marquee_tid
+            self.marquee_tid, self.marquee_step = selected, 0
+            self.redraw_directory(previous, 0)
+            self.redraw_directory(selected, 0)
         self.paint_status()
+
+    def redraw_directory(self, tid, step):
+        options = self.query_one("#sessions", OptionList)
+        if tid and tid in self.store.sessions:
+            try:
+                option = options.get_option(tid)
+            except OptionDoesNotExist:
+                return
+            row = session_row(self.store.get(tid), max(7, options.size.width - 3),
+                              self.palette, tid in self.deleting, step)
+            if not isinstance(option.prompt, Text) or option.prompt.plain != row.plain:
+                options.replace_option_prompt(tid, row)
+
+    def advance_directory(self):
+        """Animate only the selected row without changing focus. 仅滚动选中目录。"""
+        if self.current or self.screen is not self.main_screen:
+            return
+        options = self.query_one("#sessions", OptionList)
+        if options.has_focus and self.marquee_tid:
+            self.marquee_step += 1
+            self.redraw_directory(self.marquee_tid, self.marquee_step)
 
     def action_delete_session(self):
         """Require two presses on the same history. 同一会话连按两次才删除。"""
@@ -997,7 +1047,8 @@ class ArcatomApp(CommandActions, App):
         if options.highlighted is not None and options.option_count:
             selected = options.get_option_at_index(options.highlighted).id
         options.clear_options()
-        width = max(30, options.size.width - 3)
+        width = max(7, options.size.width - 3)
+        self.query_one("#session-columns", Static).update(session_header(width, self.palette))
         for section, label, color in (
                 ("waiting", tr('等待你确认 / 输入'), self.palette.warning),
                 ("working", tr('正在工作'), self.palette.success),
@@ -1008,7 +1059,8 @@ class ArcatomApp(CommandActions, App):
                                       disabled=True))
             for session in members:
                 options.add_option(Option(session_row(session, width, self.palette,
-                                                      session.id in self.deleting), id=session.id))
+                                                      session.id in self.deleting,
+                                                      self.marquee_step if session.id == selected else 0), id=session.id))
         if not options.has_focus:
             options.highlighted = None
         elif selected:
@@ -1024,6 +1076,7 @@ class ArcatomApp(CommandActions, App):
         self.query_one("#overview", Static).update(Text(tr('{0} 个会话    {1} 个运行中    账户累计 {2} tokens').format(len(self.store.roots()), active, number(lifetime)), style=self.palette.accent))
 
     def paint_chat(self):
+        self.call_after_refresh(self.query_one(Composer).fit_height)
         self.update_navigation_hint()
         session = self.store.get(self.current)
         attachments = self.query_one("#attachments", Static)
@@ -1314,7 +1367,9 @@ class ArcatomApp(CommandActions, App):
 
     @on(TextArea.Changed, "#composer")
     def composer_changed(self):
-        self.refresh_commands(self.query_one(Composer).text)
+        composer = self.query_one(Composer)
+        self.refresh_commands(composer.text)
+        self.call_after_refresh(composer.fit_height)
 
     @on(Input.Changed, "#search")
     def command_search_changed(self, event):

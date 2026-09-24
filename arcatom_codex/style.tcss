@@ -14,6 +14,7 @@ OptionList > .option-list--option { padding: 0 1; }
 OptionList > .option-list--option-highlighted { background: $arc-selection; color: $arc-foreground; text-style: none; }
 OptionList:focus > .option-list--option-highlighted { background: $arc-selection; color: $arc-foreground; }
 #sessions { height: 1fr; }
+#session-columns { height: 1; padding: 0 1; }
 #home-hint { height: 1; padding: 0; }
 #bottom { dock: bottom; height: auto; min-height: 1; max-height: 4; padding: 0 2; border: none; background: $arc-surface; }
 #chat-title { height: 1; text-style: bold; }
@@ -24,7 +25,7 @@ OptionList:focus > .option-list--option-highlighted { background: $arc-selection
 #activity-summary { height: 1; padding-top: 0; color: $arc-accent; }
 #activities { height: auto; max-height: 9; border-left: solid $arc-border; margin-bottom: 1; }
 #activities > .option-list--option { padding: 0 1; }
-#composer { height: 4; min-height: 3; border: round $arc-border; background: $arc-surface; color: $arc-foreground; padding: 0 1; }
+#composer { height: 3; min-height: 3; border: round $arc-border; background: $arc-surface; color: $arc-foreground; padding: 0 1; }
 #composer:focus { border: round $arc-accent; }
 #chat-hint { height: 1; }
 ModalScreen { align: center middle; background: #000000 60%; }
@@ -39,7 +40,6 @@ Button:focus { text-style: bold; tint: $arc-accent 20%; }
 #answers { height: 1fr; }
 Screen.compact #brand { height: 3; padding-top: 0; }
 Screen.compact #connection { height: 1; }
-Screen.compact #composer { height: 3; }
 Screen.compact #chat-path { height: 1; }
 Screen.compact #chat-title { height: 1; }
 .command-menu { height: auto; max-height: 8; border: round $arc-border; background: $arc-surface; margin-bottom: 1; }

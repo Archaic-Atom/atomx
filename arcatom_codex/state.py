@@ -163,7 +163,11 @@ class Store:
             self.removed.add(meta["id"])
             return Session(meta["id"], meta=meta)
         session = self.get(meta["id"])
+        previous_updated = session.meta.get("updatedAt", 0) or 0
         session.meta.update({k: v for k, v in meta.items() if k != "turns"})
+        # List snapshots may lag live work events. 列表快照不能回退实时处理时间。
+        if previous_updated:
+            session.meta["updatedAt"] = max(previous_updated, session.meta.get("updatedAt", 0) or 0)
         for turn in meta.get("turns", []):
             for item in turn.get("items", []):
                 session.ingest(item)
@@ -211,12 +215,14 @@ class Store:
         elif method == "thread/status/changed":
             session.meta["status"] = params["status"]
         elif method == "turn/started":
+            session.meta["updatedAt"] = int(time.time())
             session.awaiting_input = False
             session.active_turn = params["turn"]["id"]
             session.meta["status"] = {"type": "active"}
             session.busy_since = session.busy_since or time.monotonic()
             session.phase = tr('Codex 正在思考')
         elif method == "turn/completed":
+            session.meta["updatedAt"] = int(time.time())
             session.awaiting_input = True
             session.active_turn = None
             session.busy_since = None

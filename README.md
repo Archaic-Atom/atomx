@@ -77,6 +77,10 @@ The home list has separate colored **Needs your attention**, **Working**, and **
 
 ## Appearance and usage
 
+Home rows use four aligned columns: **Title / Summary / Directory / Last active**, with a 26:30:26:18 width ratio as the terminal resizes. Times are local (`MM-DD HH:MM`); missing timestamps show `—`. The selected row’s long directory scrolls from start to end while other columns stay fixed.
+
+The composer grows with typed, pasted and wrapped lines, then shrinks when cleared. `Shift+Enter` (or `Ctrl+J`) inserts a newline and moves the cursor onto it. When the draft exceeds the available terminal height, it scrolls while keeping a small part of the conversation visible.
+
 Shell commands occupy one status line in the conversation, even when they contain multiline scripts. Long commands are ellipsized; press `Ctrl+T`, select a command and press `Enter` to see the complete script and output.
 
 The default appearance is **Graphite + Copper**. Graphite uses the terminal default background so the terminal’s existing transparency setting remains visible; input surfaces, selection and dialogs retain their contrast. Other palettes keep their own background colors. Settings offers Warm sand, Midnight, Forest, Graphite and Paper palettes, accent swatches, language, compact layout, output following and the new-session directory. Use ↑/↓ to move between settings, Enter to open a choice, ↑/↓ to choose, and Enter to confirm. Esc closes the choice first, then leaves settings; Ctrl+S saves. Directory editing also starts with Enter, and Esc cancels that field edit. Colors preview immediately; Cancel restores the previous appearance. Language applies on Save. User messages have a separate gray background; changing the interface language does not translate user messages, model replies, paths or server data.
