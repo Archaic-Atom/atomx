@@ -72,9 +72,7 @@ def brand(palette: Palette, compact: bool, home: bool) -> Text:
     if not home:
         return Text.assemble(("ARCATOM", "bold " + palette.accent),
                              (" / CODEX", palette.muted))
-    rows = ([" ⢹⣉⣵⣮⣉⡇ ", "⢏⣉⢮⠰⠆⡵⣉⣽", " ⢸⣉⡹⢏⣉⡇ "] if compact else
-            ["  ⣟⠉⠉⡲⢖⠉⠉⣳  ", "⡤⠒⠺⣭⠏⣩⣍⠹⣭⠗⠒⢤",
-             "⠑⠢⢴⢿⣦⣙⣋⣴⡿⡦⠔⠛", "  ⢯⣀⣤⠽⠯⣄⣀⡽  "])
+    rows = [" ⢹⣉⣵⣮⣉⡇ ", "⢏⣉⢮⠰⠆⡵⣉⣽", " ⢸⣉⡹⢏⣉⡇ "]
     result = Text()
     for index, line in enumerate(rows):
         result.append(line, palette.accent)

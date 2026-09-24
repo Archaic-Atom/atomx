@@ -31,6 +31,7 @@ from .appearance import PALETTES, palette_for, brand
 from .settings import Settings
 from .clipboard import copy_text, read_clipboard, import_image
 from .pickers import Prompt
+from .home_list import section_heading, session_row
 
 def pretty(item: dict, code_theme="monokai", palette=None):
     palette = palette or PALETTES["warm"]
@@ -618,6 +619,8 @@ class ArcatomApp(CommandActions, App):
             self.main_screen.set_class(self.compact_layout, "compact")
             self.query_one("#brand", Static).update(brand(self.palette, self.compact_layout, not self.current))
             self.paint_status()
+            if not self.current:
+                self.call_after_refresh(self.paint_sessions)
 
     async def connect(self):
         try:
@@ -859,24 +862,18 @@ class ArcatomApp(CommandActions, App):
         if options.highlighted is not None and options.option_count:
             selected = options.get_option_at_index(options.highlighted).id
         options.clear_options()
-        grouped = []
-        for section, label in (("waiting", tr('等待你确认 / 输入')), ("working", tr('正在工作')), ("history", tr('历史会话'))):
+        width = max(30, options.size.width - 3)
+        for section, label, color in (
+                ("waiting", tr('等待你确认 / 输入'), self.palette.warning),
+                ("working", tr('正在工作'), self.palette.success),
+                ("history", tr('历史会话'), self.palette.muted)):
             members = [s for s in sessions if s.section == section]
-            grouped.append(Option(Text(f"── {label} · {len(members)} ──", style="bold " + self.palette.accent), disabled=True))
+            options.add_option(Option(section_heading(label, len(members), color,
+                                                      self.palette, section == "waiting"),
+                                      disabled=True))
             for session in members:
-                grouped.append(session)
-        for session in grouped:
-            if isinstance(session, Option):
-                options.add_option(session)
-                continue
-            title = Text("● " if session.unread else "  ", style=self.palette.accent)
-            title.append(session.title[:85], style="bold " + self.palette.foreground)
-            state = tr('删除中…') if session.id in self.deleting else session.status
-            title.append(f"   {state}  ·  {number(session.total)} tokens\n", style=self.palette.success if session.active_turn else self.palette.muted)
-            updated = session.meta.get("updatedAt", 0)
-            date = time.strftime("%m-%d %H:%M", time.localtime(updated)) if updated else ""
-            title.append(f"  {clean(session.meta.get('cwd', ''))}  ·  {date}\n ", style=self.palette.muted)
-            options.add_option(Option(title, id=session.id))
+                options.add_option(Option(session_row(session, width, self.palette,
+                                                      session.id in self.deleting), id=session.id))
         if selected:
             for i in range(options.option_count):
                 if options.get_option_at_index(i).id == selected:
