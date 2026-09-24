@@ -28,6 +28,11 @@ class Settings(ModalScreen[dict | None]):
                 yield Static(tr("语言 / Language"), classes="setting-label")
                 yield Select([("English", "en"), ("简体中文", "zh")], id="language",
                              value=self.values.get("language", "en"), allow_blank=False)
+                with Horizontal(classes="setting-row"):
+                    yield Static(tr("代我审批 · Approve for me"))
+                    yield Switch(self.values.get("approve_for_me", True), id="approve-for-me")
+                yield Static(tr("开启：Codex 自动审查权限请求；关闭：人工确认。保存后用于新建、恢复及后续回合，保留沙箱限制。"),
+                             classes="muted setting-description")
                 yield Static(tr('界面调色板 · 首页和会话同步预览'), classes="setting-label")
                 yield Select([(Text("██  " + tr(p.label), p.accent), key)
                               for key, p in PALETTES.items()], id="ui-theme",
@@ -76,9 +81,11 @@ class Settings(ModalScreen[dict | None]):
 
     @on(Switch.Changed)
     def switch_changed(self, event):
-        key = {"follow-output": "follow_output", "compact-layout": "compact"}[event.switch.id]
+        key = {"follow-output": "follow_output", "compact-layout": "compact",
+               "approve-for-me": "approve_for_me"}[event.switch.id]
         self.values[key] = event.value
-        self.preview()
+        if key != "approve_for_me":
+            self.preview()
 
     def action_save(self):
         directory = self.query_one("#default-cwd", Input).value.strip()

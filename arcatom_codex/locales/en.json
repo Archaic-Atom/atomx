@@ -312,5 +312,7 @@
   "图片正在粘贴，请稍后按 Enter。": "An image is still being pasted. Press Enter when it finishes.",
   "编辑 · Esc 浏览 · ↑↓ 历史输入 · Ctrl+J 换行 · F3 复制 · F2 设置": "Editing · Esc browse · ↑↓ prompt history · Ctrl+J newline · F3 copy · F2 settings",
   "输入框已选中 · Enter 编辑 · ↑ 浏览 · Esc / ← 首页": "Input selected · Enter edit · ↑ browse · Esc / ← home",
-  "浏览 · ↑↓ 滚动 · ↑↑ 顶部 · ↓↓ 底部 · ↓ 回输入框 · Esc / ← 首页": "Browsing · ↑↓ scroll · ↑↑ top · ↓↓ bottom · ↓ input · Esc / ← home"
+  "浏览 · ↑↓ 滚动 · ↑↑ 顶部 · ↓↓ 底部 · ↓ 回输入框 · Esc / ← 首页": "Browsing · ↑↓ scroll · ↑↑ top · ↓↓ bottom · ↓ input · Esc / ← home",
+  "代我审批 · Approve for me": "Approve for me · Auto-review",
+  "开启：Codex 自动审查权限请求；关闭：人工确认。保存后用于新建、恢复及后续回合，保留沙箱限制。": "On: Codex reviews approval requests. Off: ask you. Applies after Save to new/resumed sessions and subsequent turns; sandbox limits remain."
 }

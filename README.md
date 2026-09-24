@@ -85,6 +85,8 @@ Pasted images appear as pending attachments and are sent only after Enter. Attac
 
 ## Codex integration
 
+**Approve for me is enabled by default.** In **F2 → Approve for me**, turn the switch off and Save to use manual approvals. The preference sets `approvalPolicy=on-request` and selects Codex's `auto_review` or `user` reviewer for new/resumed sessions and subsequent turns. It preserves sandbox boundaries and global Codex configuration. Active turns and already-open approval dialogs are not retroactively approved. Backend restrictions still apply; a rejected setting prevents the new request from being sent. See [official auto-review documentation](https://learn.chatgpt.com/docs/sandboxing/auto-review).
+
 The client connects through `codex app-server --stdio`, retaining local login, configuration, sandboxing and approvals. Approval dialogs default to decline; unsupported interactive requests are declined explicitly. Returning home does not stop work. Quitting closes the service this app started, with a confirmation when a turn is active.
 
 The menu contains **72 entries** including aliases: 48 handled in the app and 24 marked **[native]**. See [command coverage](docs/commands.md). Native commands temporarily hand the terminal to official Codex, then reconnect when you exit it with `/quit`. Finish active turns and background terminals before handing off. On macOS/Linux, a POSIX PTY prefills the slash command without submitting it. On Windows, Codex inherits the console and you type the selected command manually. Official trust, login, permissions and platform restrictions still apply.

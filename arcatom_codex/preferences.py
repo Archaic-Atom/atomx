@@ -5,6 +5,15 @@ from pathlib import Path
 import tempfile
 
 
+def approval_defaults(preferences: dict) -> dict[str, str]:
+    """Route approvals through Codex review, preserving sandbox boundaries.
+
+    默认启用官方自动审查；关闭后由用户确认，不在客户端自动批准。
+    """
+    return {"approvalPolicy": "on-request",
+            "approvalsReviewer": "auto_review" if preferences.get("approve_for_me", True) else "user"}
+
+
 def preference_path() -> Path:
     return Path.home() / ".config" / "arcatom" / "preferences.json"
 

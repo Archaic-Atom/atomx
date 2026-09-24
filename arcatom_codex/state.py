@@ -56,6 +56,7 @@ class Session:
     pending_requests: set[str] = field(default_factory=set)
     awaiting_input: bool = False
     attachments: list[str] = field(default_factory=list)
+    approval_default_applied: bool | None = None
 
     @property
     def section(self) -> str:

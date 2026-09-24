@@ -26,7 +26,7 @@ from .statusline import build_status
 from .personal import bridge_instructions, discover_skills, turn_context
 from .commands import matches, BY_NAME
 from .command_actions import CommandActions
-from .preferences import read_preferences
+from .preferences import read_preferences, approval_defaults
 from .appearance import PALETTES, palette_for, brand
 from .settings import Settings
 from .clipboard import copy_text, read_clipboard, import_image
@@ -1238,10 +1238,13 @@ class ArcatomApp(CommandActions, App):
             return
         self.creating = True
         try:
-            result = await self.client.call("thread/start", {"cwd": cwd})
+            desired = bool(self.view_preferences.get("approve_for_me", True))
+            result = await self.client.call("thread/start", {
+                "cwd": cwd, **approval_defaults(self.view_preferences)})
             session = self.store.merge(result["thread"], history=True)
             session.resumed = True
             session.awaiting_input = True
+            session.approval_default_applied = desired
             self.apply_runtime(session, result)
             await self.open_session(session.id)
         finally:

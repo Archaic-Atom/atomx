@@ -21,7 +21,7 @@ from .pickers import Picker, Prompt
 from .personal import PersonalSkill, bridge_instructions, discover_skills
 from .rpc import CodexClient, RpcError
 from .state import clean
-from .preferences import write_preferences
+from .preferences import write_preferences, approval_defaults
 
 
 class CommandActions:
@@ -111,11 +111,20 @@ class CommandActions:
         lock = self.resume_locks.setdefault(tid, asyncio.Lock())
         async with lock:
             session = self.store.get(tid)
+            desired = bool(self.view_preferences.get("approve_for_me", True))
+            approval = approval_defaults(self.view_preferences)
             if not session.resumed:
-                result = await self.client.call("thread/resume", {"threadId": tid, "excludeTurns": True})
+                result = await self.client.call("thread/resume", {
+                    "threadId": tid, "excludeTurns": True, **approval})
                 self.store.merge(result["thread"])
                 self.apply_runtime(session, result)
                 session.resumed = True
+                session.approval_default_applied = desired
+                self.store.revision += 1
+            elif session.approval_default_applied != desired:
+                await self.client.call("thread/settings/update", {"threadId": tid, **approval})
+                session.meta.update(approval)
+                session.approval_default_applied = desired
                 self.store.revision += 1
             return session
 

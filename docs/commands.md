@@ -6,7 +6,7 @@
 
 | 命令 | 行为 |
 | --- | --- |
-| settings / palette | 语言、整套界面配色、强调色、自动跟随、紧凑布局与默认目录；F2 也可打开 |
+| settings / palette | 语言、默认自动审查开关、整套界面配色、强调色、自动跟随、紧凑布局与默认目录；F2 也可打开 |
 | model / reasoning | 从 model/list 分页读取模型与强度，通过 thread/settings/update 更新当前会话；取消和失败都不伪报成功 |
 | permissions | 从后端读取允许选择的权限配置，应用到当前会话 |
 | plan | 切换计划 / 执行模式；可附带任务；模型切换保留当前模式 |

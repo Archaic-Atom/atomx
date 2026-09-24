@@ -53,6 +53,7 @@ Screen.compact .command-menu { max-height: 6; }
 #sessions > .option-list--option-disabled { color: $arc-foreground; }
 #settings-scroll { height: 1fr; }
 .setting-label { height: auto; margin-top: 1; }
+.setting-description { height: auto; margin-bottom: 1; }
 .setting-row { height: 3; align-vertical: middle; }
 .setting-row Static { width: 1fr; height: 1; }
 .setting-row Switch { width: auto; }
