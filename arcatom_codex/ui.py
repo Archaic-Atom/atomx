@@ -42,12 +42,15 @@ class MessageMarkdown(RichMarkdown):
     """Keep syntax colors without opaque code backgrounds. 代码保留彩色，去掉黑底。"""
 
     def __rich_console__(self, console, options):
-        background = Style(bgcolor="default")
         for part in super().__rich_console__(console, options):
             segments = (part,) if isinstance(part, Segment) else console.render(part, options)
             for segment in segments:
-                yield Segment(segment.text, (segment.style or Style()) + background,
-                              segment.control)
+                style = segment.style
+                if style and style.bgcolor is not None:
+                    # Textual converts Rich's default background to RGB. Omit it instead.
+                    # 默认底色会在可复制文本转换时变成实色，因此彻底去掉底色属性。
+                    style = style.without_color + Style(color=style.color, meta=style.meta)
+                yield Segment(segment.text, style, segment.control)
 
 
 def command_summary(command: str | None) -> str:

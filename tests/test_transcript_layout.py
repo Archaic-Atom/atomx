@@ -1,6 +1,8 @@
 """Transcript anchoring and flat Rich surfaces. 日志重排和无底色内容验证。"""
 import tempfile
+import os
 import unittest
+from unittest.mock import patch
 
 from rich.console import Console
 
@@ -32,8 +34,8 @@ class FlatContentTests(unittest.TestCase):
                         "master: `d04a45d`\n\n```python\nprint('hello')\n```"},
                         code_theme=theme, palette=palette)
                     segments = list(console.render(message))
-                    self.assertTrue(all(not segment.style or not segment.style.bgcolor or
-                                        segment.style.bgcolor.is_default for segment in segments))
+                    self.assertTrue(all(not segment.style or segment.style.bgcolor is None
+                                        for segment in segments))
                     commit = next(segment for segment in segments if "d04a45d" in segment.text)
                     self.assertTrue(commit.style.bold)
                     self.assertIsNotNone(commit.style.color)
@@ -41,6 +43,37 @@ class FlatContentTests(unittest.TestCase):
 
 
 class TranscriptLayoutTests(unittest.IsolatedAsyncioTestCase):
+    async def test_actual_screen_keeps_reply_background_clear_and_user_gray(self):
+        with patch.dict(os.environ):
+            os.environ.pop("NO_COLOR", None)
+            app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
+        async with app.run_test(size=(110, 40)) as pilot:
+            await pilot.pause(.2)
+            await app.open_session("demo-dashboard")
+            await pilot.pause(.2)
+            session = app.store.get(app.current)
+            session.ingest({"id": "user", "type": "userMessage", "content": [
+                {"type": "text", "text": "USER_GRAY_MARKER"}]})
+            session.ingest({"id": "reply", "type": "agentMessage", "text":
+                "REPLY_BODY **BOLD_REPLY** `d04a45d`\n\n```python\nprint('CODE_BODY')\n```"})
+            for theme in PALETTES:
+                app.apply_appearance({"ui_theme": theme})
+                await pilot.pause(.1)
+                update = app.screen._compositor.render_full_update()
+                segments = [segment for line in update.strips for strip in line for segment in strip]
+                for marker in ("REPLY_BODY", "BOLD_REPLY", "d04a45d", "CODE_BODY"):
+                    matches = [segment for segment in segments if marker in segment.text]
+                    self.assertTrue(matches, (theme, marker))
+                    for segment in matches:
+                        background = segment.style.bgcolor if segment.style else None
+                        self.assertTrue(background is None or background.is_default,
+                                        (theme, marker, background))
+                user = next(segment for segment in segments if "USER_GRAY_MARKER" in segment.text)
+                expected = "#dcdcd9" if theme == "paper" else "#373737"
+                self.assertEqual(user.style.bgcolor.name, expected)
+                bold = next(segment for segment in segments if "BOLD_REPLY" in segment.text)
+                self.assertTrue(bold.style.bold)
+
     async def test_growing_and_shrinking_input_keeps_log_bottom_visible(self):
         client = DemoClient()
         client.threads["demo-dashboard"]["turns"] = [{
