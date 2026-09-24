@@ -18,8 +18,9 @@ import time
 from .platform_support import executable_argv
 
 
-def native_argv(binary: str, cwd: str, thread: str | None) -> list[str]:
-    argv = [*executable_argv(binary), "--no-daemon", "--no-alt-screen", "--cd", cwd]
+def native_argv(binary: str, cwd: str, thread: str | None, remote: str | None = None) -> list[str]:
+    transport = ["--remote", remote] if remote else ["--no-daemon"]
+    argv = [*executable_argv(binary), *transport, "--no-alt-screen", "--cd", cwd]
     if thread:
         argv.extend(["resume", thread])
     return argv
@@ -133,10 +134,11 @@ def main():
     parser.add_argument("--binary", required=True)
     parser.add_argument("--cwd", required=True)
     parser.add_argument("--thread")
+    parser.add_argument("--remote")
     parser.add_argument("--command", required=True)
     args = parser.parse_args()
     print(tr('官方 Codex · {0}\n命令就绪后按 Enter；若出现登录/信任提示，完成后输入该命令。\n使用 /quit 退出官方界面即可返回 Arcatom。').format(args.command), flush=True)
-    raise SystemExit(bridge(native_argv(args.binary, args.cwd, args.thread), args.command))
+    raise SystemExit(bridge(native_argv(args.binary, args.cwd, args.thread, args.remote), args.command))
 
 
 if __name__ == "__main__":

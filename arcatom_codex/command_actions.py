@@ -56,6 +56,8 @@ class CommandActions:
                 "--cwd", cwd, "--command", command]
         if tid:
             argv.extend(["--thread", tid])
+        if getattr(self.client, "remote_endpoint", None):
+            argv.extend(["--remote", self.client.remote_endpoint])
         self.native_active = True
         try:
             with self.suspend():

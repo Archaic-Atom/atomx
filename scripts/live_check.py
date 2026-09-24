@@ -15,7 +15,7 @@ from arcatom_codex.personal import PersonalSkill, turn_context
 
 async def main(prompt, skills=False, commands=False, native=False):
     native_workspace = tempfile.TemporaryDirectory(prefix="arcatom-native-check-") if native else None
-    client = CodexClient(cwd=str(Path(native_workspace.name).resolve()) if native_workspace else str(Path(__file__).resolve().parents[1]))
+    client = CodexClient(shared=False, cwd=str(Path(native_workspace.name).resolve()) if native_workspace else str(Path(__file__).resolve().parents[1]))
     report = {}
     fixture = tempfile.TemporaryDirectory(prefix="arcatom-skill-check-") if skills else None
     disposable_thread = None

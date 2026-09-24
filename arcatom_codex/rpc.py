@@ -17,24 +17,57 @@ class RpcError(RuntimeError):
 
 
 class CodexClient:
-    def __init__(self, binary: str = "codex", cwd: str | None = None):
+    def __init__(self, binary: str = "codex", cwd: str | None = None, *, shared: bool = True):
         self.binary, self.cwd = binary, cwd
+        self.shared = shared
         self.events: asyncio.Queue[dict] = asyncio.Queue()
         self.pending: dict[int, asyncio.Future] = {}
         self.stderr: deque[str] = deque(maxlen=30)
         self.process: asyncio.subprocess.Process | None = None
         self.tasks: list[asyncio.Task] = []
+        self.websocket = None
+        self.remote_endpoint = None
         self.sequence = 0
         self.closing = False
 
     async def start(self):
+        self.closing = False
         env = dict(os.environ, NO_COLOR="1")
+        argv = executable_argv(self.binary)
+        transport = ["--stdio"]
+        if self.shared and os.name != "nt":
+            from .shared_backend import ensure_local_server
+            endpoint = await asyncio.to_thread(ensure_local_server, self.binary, self.cwd)
+            from websockets.asyncio.client import unix_connect
+            self.websocket = await unix_connect(endpoint, max_size=32 * 1024 * 1024)
+            self.remote_endpoint = "unix://" + endpoint
+            self.tasks = [asyncio.create_task(self._read())]
+            await self.initialize()
+            return
+        elif self.shared:
+            starter = await asyncio.create_subprocess_exec(
+                *argv, "app-server", "daemon", "start", cwd=self.cwd, env=env,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            try:
+                output, errors = await asyncio.wait_for(starter.communicate(), 30)
+            except asyncio.TimeoutError:
+                starter.kill()
+                await starter.wait()
+                raise RpcError(tr('共享 Codex 服务启动超时，请检查 codex app-server daemon。'))
+            if starter.returncode:
+                raise RpcError(tr('无法连接共享 Codex 服务：') +
+                               (errors or output).decode(errors="replace")[-1600:])
+            transport = ["proxy"]
+            self.remote_endpoint = "unix://"
         self.process = await asyncio.create_subprocess_exec(
-            *executable_argv(self.binary), "app-server", "--stdio", cwd=self.cwd, env=env,
+            *argv, "app-server", *transport, cwd=self.cwd, env=env,
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE, limit=32 * 1024 * 1024,
         )
         self.tasks = [asyncio.create_task(self._read()), asyncio.create_task(self._errors())]
+        await self.initialize()
+
+    async def initialize(self):
         await self.call("initialize", {
             "clientInfo": {"name": "arcatom_codex", "title": "Arcatom Codex", "version": "0.1.0"},
             "capabilities": {"experimentalApi": True},
@@ -42,6 +75,9 @@ class CodexClient:
         await self.send({"method": "initialized", "params": {}})
 
     async def send(self, message: dict):
+        if self.websocket is not None:
+            await self.websocket.send(json.dumps(message, ensure_ascii=False))
+            return
         if not self.process or self.process.returncode is not None:
             raise RpcError(tr('Codex 连接已关闭'))
         self.process.stdin.write((json.dumps(message, ensure_ascii=False) + "\n").encode())
@@ -74,7 +110,17 @@ class CodexClient:
 
     async def _read(self):
         try:
-            while line := await self.process.stdout.readline():
+            while True:
+                if self.websocket is not None:
+                    from websockets.exceptions import ConnectionClosed
+                    try:
+                        line = await self.websocket.recv()
+                    except ConnectionClosed:
+                        break
+                else:
+                    line = await self.process.stdout.readline()
+                    if not line:
+                        break
                 message = json.loads(line)
                 if "method" in message:
                     await self.events.put(message)
@@ -103,6 +149,8 @@ class CodexClient:
 
     async def close(self):
         self.closing = True
+        if self.websocket is not None:
+            await self.websocket.close()
         if self.process and self.process.returncode is None:
             self.process.stdin.close()
             try:
@@ -117,6 +165,7 @@ class CodexClient:
         for task in self.tasks:
             task.cancel()
         await asyncio.gather(*self.tasks, return_exceptions=True)
+        self.websocket = None
 
     async def pages(self, method: str, params: dict):
         cursor = None

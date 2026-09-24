@@ -43,6 +43,10 @@ class CatalogTests(unittest.TestCase):
         argv = native_argv("/path/codex", "/a directory", "a-thread")
         self.assertEqual(argv[-2:], ["resume", "a-thread"])
         self.assertNotIn("/hooks", argv)
+        shared = native_argv("codex", "/a directory", "a-thread", "unix:///tmp/test.sock")
+        self.assertIn("--remote", shared)
+        self.assertNotIn("--no-daemon", shared)
+        self.assertEqual(shared[-2:], ["resume", "a-thread"])
         self.assertTrue(terminal_reply(b"\x1b[1;1R"))
         self.assertTrue(terminal_reply(b"\x1b]11;rgb:0000/0000/0000\x1b\\"))
         self.assertFalse(terminal_reply(b"\x1b[A"))
@@ -160,7 +164,7 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause(.2)
             await pilot.press("down", "enter", "escape")
             await pilot.pause(.2)
-            self.assertFalse(any(m == "thread/settings/update" for m, _ in client.calls))
+            self.assertFalse(any(m == "thread/settings/update" and "model" in p for m, p in client.calls))
             before = app.store.get(app.current).meta["model"]
             original = client.call
             async def fail(method, params=None, timeout=30):

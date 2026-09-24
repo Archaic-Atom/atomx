@@ -11,7 +11,7 @@ from pathlib import Path
 from arcatom_codex.native import composer_ready
 
 
-def check_native(cwd, thread):
+def check_native(cwd, thread, remote=None):
     if os.name == "nt":
         return {"skipped": "POSIX PTY check; test Windows console handoff interactively"}
     import fcntl
@@ -22,7 +22,8 @@ def check_native(cwd, thread):
     env = {**os.environ, "TERM": "xterm-256color"}
     source = str(Path(__file__).resolve().parents[1])
     process = subprocess.Popen([sys.executable, "-m", "arcatom_codex.native", "--binary", "codex",
-        "--cwd", cwd, "--thread", thread, "--command", "/status"],
+        "--cwd", cwd, "--thread", thread, "--command", "/status"] +
+        (["--remote", remote] if remote else []),
         cwd=source, env=env, stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
     os.close(slave)
     output = b""
@@ -32,6 +33,7 @@ def check_native(cwd, thread):
     trust_gate = False
     trust_at = None
     trust_exit_sent = False
+    trust_cancel_count = 0
     ready_at = None
     entered_at = None
     deadline = time.monotonic() + 40
@@ -62,6 +64,11 @@ def check_native(cwd, thread):
             if trust_at and not trust_exit_sent and now - trust_at > 1:
                 os.write(master, b"\x1b")
                 trust_exit_sent = True
+            if trust_exit_sent and trust_cancel_count < 2 and now - trust_at > 2 + trust_cancel_count:
+                # Shared TUI returns to its task list after declining trust.
+                # 拒绝信任后退出任务列表，不确认信任或发送模型输入。
+                os.write(master, b"\x03")
+                trust_cancel_count += 1
             if entered and any(s in plain for s in (b"session:", b"session id:", b"context window:", b"token usage:")):
                 status_seen = True
             if entered and not exited and (status_seen or now - entered_at > 8):

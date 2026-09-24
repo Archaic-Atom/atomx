@@ -70,3 +70,5 @@ SelectCurrent { background: $arc-surface; color: $arc-foreground; }
 
 DirectoryInput:focus { border: round $arc-accent; }
 DirectoryInput.editing { background: $arc-selection; }
+
+#older-history { height: 1; min-height: 1; color: $arc-accent; background: $arc-background; }

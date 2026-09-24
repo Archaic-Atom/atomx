@@ -318,5 +318,10 @@
   "石墨灰": "Graphite",
   "已复制到系统剪贴板。": "Copied to the system clipboard.",
   "系统剪贴板不可用，已尝试终端复制；请检查终端剪贴板权限。": "System clipboard unavailable; terminal copy requested. Check terminal clipboard permissions.",
-  "输入框已选中 · 直接输入 / Enter 编辑 · ↑ 浏览 · Esc / ← 首页": "Input selected · Type / Enter to edit · ↑ Browse · Esc / ← Home"
+  "输入框已选中 · 直接输入 / Enter 编辑 · ↑ 浏览 · Esc / ← 首页": "Input selected · Type / Enter to edit · ↑ Browse · Esc / ← Home",
+  "共享 Codex 服务启动超时，请检查 codex app-server daemon。": "Shared Codex startup timed out. Check codex app-server daemon.",
+  "无法连接共享 Codex 服务：": "Unable to connect to shared Codex: ",
+  "加载更早记录 · 顶部按 ↑": "Load earlier messages · ↑ at the top",
+  "正在加载最近的会话记录…": "Loading recent messages…",
+  "会话记录加载失败：": "Unable to load messages: "
 }

@@ -447,6 +447,19 @@ class ArcatomApp(CommandActions, App):
         self.palette = palette_for(self.view_preferences)
         self.apply_appearance(self.view_preferences)
 
+    async def on_event(self, event: events.Event) -> None:
+        """Route typing before list shortcuts can consume it. 输入首字不被列表吞掉。"""
+        typing = (isinstance(event, events.Key) and event.is_printable or
+                  isinstance(event, events.Paste))
+        if (typing and not event.is_forwarded and self.main_screen is not None
+                and self.screen is self.main_screen):
+            if self.current:
+                self.focus_composer(edit=True)
+                self.screen.set_focus(self.query_one(Composer))
+            else:
+                self.screen.set_focus(self.query_one("#search"))
+        await super().on_event(event)
+
     def apply_appearance(self, preferences: dict):
         """Update widgets and cached Rich messages together. 同步 CSS 和历史消息。"""
         self.appearance_preferences = dict(preferences)
@@ -496,8 +509,9 @@ class ArcatomApp(CommandActions, App):
         if self.screen is self.main_screen:
             if self.current:
                 self.focus_composer(edit=True)
+                self.screen.set_focus(self.query_one(Composer))
             else:
-                self.query_one("#search").focus()
+                self.screen.set_focus(self.query_one("#search"))
         else:
             inputs = self.screen.query(Input)
             if inputs:
@@ -615,6 +629,8 @@ class ArcatomApp(CommandActions, App):
     def browse_transcript(self, key: str):
         """Browse with arrows; a quick repeated arrow jumps to either end."""
         scroll = self.query_one("#transcript-scroll", TranscriptScroll)
+        if key in ("up", "home") and scroll.scroll_y == 0:
+            self.load_older_history()
         if key in ("down", "pagedown") and scroll.is_vertical_scroll_end:
             self.focus_composer(edit=False)
             return
@@ -652,6 +668,7 @@ class ArcatomApp(CommandActions, App):
             with Vertical(id="chat"):
                 yield Static("", id="chat-title", markup=False)
                 yield Static("", id="chat-path", markup=False, classes="muted")
+                yield Button(tr("加载更早记录 · 顶部按 ↑"), id="older-history")
                 with TranscriptScroll(id="transcript-scroll"):
                     yield SelectableTranscript("", id="transcript", markup=False)
                 yield Static("", id="waiting", markup=False)
@@ -672,6 +689,7 @@ class ArcatomApp(CommandActions, App):
         self.query_one("#slash-commands").display = False
         self.query_one("#home-commands").display = False
         self.query_one("#attachments").display = False
+        self.query_one("#older-history").display = False
         self.query_one("#search").focus()
         self.set_interval(0.15, self.paint)
         self.run_worker(self.connect(), name="connect", exit_on_error=False)
@@ -758,6 +776,7 @@ class ArcatomApp(CommandActions, App):
                 self.ready = False
                 for session in self.store.sessions.values():
                     session.busy_since = None
+                    session.resumed = False
                     session.active_turn = None
                     session.pending_requests.clear()
                     session.meta["status"] = {"type": "notLoaded"}
@@ -967,8 +986,12 @@ class ArcatomApp(CommandActions, App):
         # 缓存未变化的 Markdown，避免每个流式片段重新解析完整历史。
         blocks = []
         signatures = []
-        for item in list(session.items.values())[-400:]:
-            visible = {k: v for k, v in item.items() if k != "aggregatedOutput"}
+        for item in list(session.items.values())[-session.visible_items:]:
+            display_fields = ("type", "text", "content", "status", "command", "changes", "server", "tool", "query")
+            if item.get("type") not in {"userMessage", "agentMessage", "plan", "commandExecution",
+                                        "fileChange", "mcpToolCall", "webSearch", "notice"}:
+                continue
+            visible = {k: item[k] for k in display_fields if k in item}
             signature = json.dumps(visible, ensure_ascii=False, sort_keys=True)
             cache_key = session.id + ":" + item["id"]
             cached = self.transcript_cache.get(cache_key)
@@ -980,10 +1003,13 @@ class ArcatomApp(CommandActions, App):
                 signatures.append((item["id"], signature))
                 blocks.append(cached[1])
         if not blocks:
-            blocks = [Text(tr('\n开始一段新的工作。\n\n直接描述任务；需要分工时，可以明确让 Codex 使用子代理。'), style=self.palette.muted)]
-        if len(session.items) > 400:
-            blocks.insert(0, Text(tr('显示最近 400 项；完整历史保存在 Codex。\n'), style=self.palette.muted))
-        transcript_signature = (session.id, signatures)
+            message = (tr("正在加载最近的会话记录…") if session.history_loading else
+                       session.history_error or tr('\n开始一段新的工作。\n\n直接描述任务；需要分工时，可以明确让 Codex 使用子代理。'))
+            blocks = [Text(message, style=self.palette.muted)]
+        older = self.query_one("#older-history", Button)
+        older.display = bool(session.history_cursor or len(session.items) > session.visible_items)
+        older.disabled = session.history_loading
+        transcript_signature = (session.id, signatures, session.history_loading, session.history_error)
         if transcript_signature != self.transcript_signature:
             self.transcript_signature = transcript_signature
             self.query_one("#transcript", Static).update(Group(*blocks))
@@ -1066,24 +1092,99 @@ class ArcatomApp(CommandActions, App):
         return self.store.merge(meta, history=True)
 
     async def open_session(self, tid):
-        if self.current:
-            self.store.get(self.current).draft = self.query_one("#composer", Composer).text
-        self.transcript_cache.clear()
-        self.transcript_signature = None
-        session = self.store.get(tid)
-        if not session.hydrated:
-            await self.read_history(tid)
+        """Switch immediately; load and subscribe in the background. 先显示再加载。"""
         if tid in self.deleting or tid in self.store.removed:
             return
+        if self.current:
+            self.store.get(self.current).draft = self.query_one(Composer).text
+        session = self.store.get(tid)
         self.current = tid
         session.unread = False
         self.query_one("#view", ContentSwitcher).current = "chat"
-        self.query_one("#composer", Composer).load_text(session.draft)
+        self.query_one(Composer).load_text(session.draft)
         self.query_one(Composer).reset_history()
         self.focus_composer(edit=True)
+        if (not session.hydrated or not session.resumed) and not session.history_loading:
+            session.history_loading = True
+            self.launch(self.load_recent_history(tid))
         self.paint(force=True)
         self.query_one("#transcript-scroll", VerticalScroll).scroll_end(animate=False)
         self.launch(self.refresh_activity(tid))
+
+    async def load_recent_history(self, tid: str, older: bool = False):
+        """Page stored items while sharing live events. 分页历史与实时事件共同更新。"""
+        session = self.store.get(tid)
+        existing_ids = set(session.items)
+        try:
+            lock = self.resume_locks.setdefault(tid, asyncio.Lock())
+            async with lock:
+                if not session.resumed:
+                    result = await self.client.call("thread/resume", {
+                        "threadId": tid, "excludeTurns": True,
+                        "initialTurnsPage": {"limit": 1, "itemsView": "notLoaded",
+                                             "sortDirection": "desc"}})
+                    self.store.merge(result["thread"])
+                    self.apply_runtime(session, result)
+                    session.resumed = True
+                    for turn in (result.get("initialTurnsPage") or {}).get("data", []):
+                        if turn.get("status") == "inProgress":
+                            session.active_turn = turn["id"]
+            page = await self.client.call("thread/items/list", {
+                "threadId": tid, "limit": 40, "sortDirection": "desc",
+                "cursor": session.history_cursor if older else None})
+            ordered = {}
+            for entry in reversed(page.get("data", [])):
+                item = entry["item"]
+                current = session.items.get(item["id"])
+                if current:
+                    # Keep newer streamed text when a stored snapshot overlaps it.
+                    # 历史快照与实时文字重叠时保留更完整的实时内容。
+                    previous, incoming = current.get("text", ""), item.get("text", "")
+                    if previous.startswith(incoming) and len(previous) > len(incoming):
+                        item = {**item, "text": previous}
+                session.ingest(item)
+                ordered[item["id"]] = session.items[item["id"]]
+            if not older and session.hydrated:
+                # Reconnect reloads a fresh tail; do not interleave cached old pages.
+                # 重连后重新分页，保留加载期间的新事件及尚未确认的输入。
+                live = {key: value for key, value in session.items.items()
+                        if key not in existing_ids or key in session.pending_messages}
+                session.items = {**ordered, **live}
+                session.visible_items = 40
+            else:
+                session.items = {**ordered, **session.items}
+            session.history_cursor = page.get("nextCursor")
+            session.hydrated = True
+            session.history_error = ""
+            if older:
+                session.visible_items += 40
+        except RpcError as exc:
+            session.history_error = tr("会话记录加载失败：") + str(exc)
+            self.notify(session.history_error, severity="error")
+        finally:
+            session.history_loading = False
+            self.store.revision += 1
+            if self.current == tid:
+                self.paint(force=True)
+                if not older and not self.query_one("#transcript-scroll").has_focus:
+                    self.query_one("#transcript-scroll").scroll_end(animate=False)
+
+    @on(Button.Pressed, "#older-history")
+    def older_history_pressed(self):
+        self.load_older_history()
+
+    def load_older_history(self):
+        if not self.current:
+            return
+        session = self.store.get(self.current)
+        if session.history_loading:
+            return
+        if len(session.items) > session.visible_items:
+            session.visible_items += 40
+            self.paint(force=True)
+        elif session.history_cursor:
+            session.history_loading = True
+            self.launch(self.load_recent_history(session.id, older=True))
 
     @on(Composer.Back)
     def back(self):
@@ -1332,15 +1433,22 @@ class ArcatomApp(CommandActions, App):
         if not self.ready:
             async def reconnect():
                 await self.client.close()
-                self.client = CodexClient(cwd=self.cwd)
+                self.client = CodexClient(binary=getattr(self.client, "binary", "codex"), cwd=self.cwd)
                 for session in self.store.sessions.values():
                     session.resumed = False
                     session.active_turn = None
                 await self.connect()
+                if self.current:
+                    await self.open_session(self.current)
             self.launch(reconnect())
         else:
             self.launch(self.load_sessions())
             self.launch(self.load_account())
+            if self.current:
+                session = self.store.get(self.current)
+                if session.history_error and not session.history_loading:
+                    session.history_loading = True
+                    self.launch(self.load_recent_history(session.id))
 
     def action_activity(self):
         if self.screen is not self.main_screen or not self.current:
@@ -1467,7 +1575,7 @@ class ArcatomApp(CommandActions, App):
         if self.screen is not self.main_screen:
             return
         active = any(s.active_turn for s in self.store.sessions.values())
-        if active:
+        if active and not getattr(self.client, "shared", False):
             self.push_screen(Approval(tr('仍有任务运行中'), tr('退出会关闭本应用启动的 Codex 服务，正在运行的任务可能中断。是否退出？')),
                              lambda yes: self.exit() if yes else None)
         else:

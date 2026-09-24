@@ -9,7 +9,7 @@ from arcatom_codex.rpc import CodexClient
 
 
 async def main():
-    client = CodexClient(cwd=str(Path(__file__).resolve().parents[1]))
+    client = CodexClient(shared=False, cwd=str(Path(__file__).resolve().parents[1]))
     tid = None
     try:
         await client.start()

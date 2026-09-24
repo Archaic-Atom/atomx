@@ -38,6 +38,12 @@ arcatom --check  # Read-only local connection check
 
 The default directory is the launch directory, configurable in Settings. Existing sessions keep their own working directories.
 
+Multiple updated Arcatom windows with the same local user, Codex installation and `CODEX_HOME` share one backend. Opening the same session subscribes to its live messages and task state; closing a window leaves the backend running. Unsent drafts remain local to each window. Restart all older Arcatom windows once after updating to join the shared service. Independently launched Codex servers are not synchronized by this connection.
+
+macOS/Linux use a private local Unix socket; Windows uses the official `app-server daemon` and `proxy` transport and requires a complete Codex installation. Shared transport was tested locally on macOS; Windows/Linux still need platform testing.
+
+Long conversations open immediately and load their newest 40 items in the background. Scroll to the top and press `↑`, or select **Load earlier messages**, to fetch another page. Reopening a loaded session reuses its rendered messages. A failed history load can be retried with `Ctrl+R`.
+
 ## Keyboard workflow
 
 | Where / action | Keys |
@@ -51,7 +57,7 @@ The default directory is the launch directory, configurable in Settings. Existin
 | Transcript: scroll / jump | `↑` / `↓`; two quick `↑` presses jump to top, two quick `↓` presses jump to bottom |
 | Transcript: return to input | At the bottom, `↓` selects the input; typing or `Enter` enables editing without sending |
 | Return home | `Esc` while browsing, or `←` while browsing / input is empty |
-| Return directly to editing | `Ctrl+L` / `F6` |
+| Return directly to editing | Start typing anywhere in the conversation, or `Ctrl+L` / `F6`; the first character is preserved |
 | Send / newline | `Enter` / `Ctrl+J` (also `Shift+Enter` in supporting terminals) |
 | Copy selected text | Select, then `Ctrl+C`, `F3` / `Ctrl+Shift+C`; forwarded `Cmd+C` also works |
 | Copy latest reply when nothing is selected | `F3`, `Ctrl+Shift+C` or `/copy` |
@@ -89,7 +95,7 @@ Pasted images appear as pending attachments and are sent only after Enter. Attac
 
 **Approve for me is enabled by default.** In **F2 → Approve for me**, turn the switch off and Save to use manual approvals. The preference sets `approvalPolicy=on-request` and selects Codex's `auto_review` or `user` reviewer for new/resumed sessions and subsequent turns. It preserves sandbox boundaries and global Codex configuration. Active turns and already-open approval dialogs are not retroactively approved. Backend restrictions still apply; a rejected setting prevents the new request from being sent. See [official auto-review documentation](https://learn.chatgpt.com/docs/sandboxing/auto-review).
 
-The client connects through `codex app-server --stdio`, retaining local login, configuration, sandboxing and approvals. Approval dialogs default to decline; unsupported interactive requests are declined explicitly. Returning home does not stop work. Quitting closes the service this app started, with a confirmation when a turn is active.
+The client connects to a shared local `codex app-server`, retaining local login, configuration, sandboxing and approvals. Approval dialogs default to decline; unsupported interactive requests are declined explicitly. Returning home does not stop work. Quitting disconnects this window while the shared backend continues its tasks.
 
 The menu contains **72 entries** including aliases: 48 handled in the app and 24 marked **[native]**. See [command coverage](docs/commands.md). Native commands temporarily hand the terminal to official Codex, then reconnect when you exit it with `/quit`. Finish active turns and background terminals before handing off. On macOS/Linux, a POSIX PTY prefills the slash command without submitting it. On Windows, Codex inherits the console and you type the selected command manually. Official trust, login, permissions and platform restrictions still apply.
 

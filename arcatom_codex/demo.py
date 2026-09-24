@@ -62,7 +62,17 @@ class DemoClient:
         if method == "thread/list":
             parent = params.get("ancestorThreadId")
             threads = [t for t in self.threads.values() if t.get("parentThreadId") == parent]
-            return {"data": copy.deepcopy(threads), "nextCursor": None}
+            return {"data": [{k: copy.deepcopy(v) for k, v in t.items() if k != "turns"}
+                             for t in threads], "nextCursor": None}
+        if method == "thread/items/list":
+            entries = [{"item": copy.deepcopy(item), "turnId": turn["id"]}
+                       for turn in self.threads[params["threadId"]]["turns"]
+                       for item in turn.get("items", [])]
+            if params.get("sortDirection") == "desc":
+                entries.reverse()
+            offset, limit = int(params.get("cursor") or 0), params.get("limit", 40)
+            page = entries[offset:offset + limit]
+            return {"data": page, "nextCursor": str(offset + limit) if offset + limit < len(entries) else None}
         if method == "model/list":
             return {"data": [{"id": name, "model": name, "displayName": label,
                 "description": "离线演示模型", "hidden": False, "isDefault": i == 0,
@@ -110,7 +120,10 @@ class DemoClient:
             thread = self.threads.get(params["threadId"])
             if not thread:
                 raise RpcError("会话不存在")
-            return {"thread": copy.deepcopy(thread), "model": thread.get("model") if thread.get("model") in ("demo-codex", "demo-reasoner") else "demo-codex",
+            metadata = copy.deepcopy(thread)
+            if params.get("excludeTurns") or (method == "thread/read" and not params.get("includeTurns")):
+                metadata.pop("turns", None)
+            return {"thread": metadata, "model": thread.get("model") if thread.get("model") in ("demo-codex", "demo-reasoner") else "demo-codex",
                     "reasoningEffort": thread.get("reasoningEffort", "medium"), "collaborationMode": thread.get("collaborationMode")}
         if method == "thread/start":
             tid = "demo-" + str(uuid.uuid4())

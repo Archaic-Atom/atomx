@@ -47,6 +47,10 @@ class Session:
     draft: str = ""
     active_turn: str | None = None
     hydrated: bool = False
+    history_loading: bool = False
+    history_cursor: str | None = None
+    history_error: str = ""
+    visible_items: int = 40
     resumed: bool = False
     unread: bool = False
     busy_since: float | None = None
@@ -196,6 +200,10 @@ class Store:
             session.usage = params["tokenUsage"]
         elif method == "thread/name/updated":
             session.meta["name"] = params.get("threadName") or params.get("name")
+        elif method == "thread/closed":
+            session.resumed = False
+        elif method == "thread/archived":
+            session.meta["archived"] = True
         elif method == "thread/status/changed":
             session.meta["status"] = params["status"]
         elif method == "turn/started":
