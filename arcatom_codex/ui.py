@@ -34,6 +34,22 @@ from .clipboard import copy_text, read_clipboard, import_image
 from .pickers import Prompt
 from .home_list import section_heading, session_row
 
+
+def command_summary(command: str | None) -> str:
+    """Summarize a command without its script body. 命令摘要不展开脚本正文。
+
+    Args:
+        command: Original shell command. 原始 shell 命令。
+
+    Returns:
+        First line with an omission marker when needed. 首行及省略标记。
+    """
+    lines = clean(command).strip().splitlines()
+    if not lines:
+        return tr('执行命令')
+    return lines[0].strip().expandtabs(4) + (" …" if len(lines) > 1 else "")
+
+
 def pretty(item: dict, code_theme="monokai", palette=None):
     palette = palette or palette_for({})
     kind = item.get("type", "")
@@ -47,7 +63,8 @@ def pretty(item: dict, code_theme="monokai", palette=None):
     if kind == "commandExecution":
         status = item.get("status", "inProgress")
         mark = "●" if status == "inProgress" else "✓" if status == "completed" else "!"
-        return Text(f"  {mark} {clean(item.get('command', tr('执行命令')))}\n", style=palette.muted)
+        return Text(f"  {mark} {command_summary(item.get('command'))}",
+                    style=palette.muted, no_wrap=True, overflow="ellipsis")
     if kind == "fileChange":
         paths = ", ".join(clean(c.get("path")) for c in item.get("changes", []))
         return Text(tr('  ◇ 文件修改 · {0}\n').format(paths), style=palette.muted)
@@ -1031,7 +1048,7 @@ class ArcatomApp(CommandActions, App):
         options.clear_options()
         self.activity_targets = {}
         def add(key, label, target):
-            options.add_option(Option(Text(label), id=key))
+            options.add_option(Option(Text(label, no_wrap=True, overflow="ellipsis"), id=key))
             self.activity_targets[key] = target
         for tid, agent in session.agents.items():
             status = agent.get("status") or agent.get("runtimeStatus") or "unknown"
@@ -1043,12 +1060,12 @@ class ArcatomApp(CommandActions, App):
         for terminal in session.terminals:
             key = terminal.get("itemId", terminal["processId"])
             live_items.add(key)
-            add("p-" + terminal["processId"], f"  ● {clean(terminal['command'])}  ·  PID {terminal.get('osPid') or terminal['processId']}", ("process", terminal))
+            add("p-" + terminal["processId"], f"  ● {command_summary(terminal['command'])}  ·  PID {terminal.get('osPid') or terminal['processId']}", ("process", terminal))
         for item in commands[-30:]:
             if item["id"] not in live_items:
                 status = item.get("status", "unknown")
                 suffix = tr('退出码 {0}').format(item['exitCode']) if item.get("exitCode") is not None else status
-                add("c-" + item["id"], f"  {'●' if status == 'inProgress' else '✓' if status == 'completed' else '!'} {clean(item.get('command'))}  ·  {suffix}", ("command", item["id"]))
+                add("c-" + item["id"], f"  {'●' if status == 'inProgress' else '✓' if status == 'completed' else '!'} {command_summary(item.get('command'))}  ·  {suffix}", ("command", item["id"]))
         if not options.option_count:
             options.add_option(Option(Text(tr('当前没有子代理或命令'), style=self.palette.muted), disabled=True))
         if session.terminal_error:
