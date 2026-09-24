@@ -184,7 +184,7 @@ class SessionSearch(Input):
             await super()._on_key(event)
 
 
-class HomeButton(Button):
+class HomeButton(Button, can_focus=False):
     BINDINGS = [Binding("up", "home_focus(-1)", show=False),
                 Binding("down", "home_focus(1)", show=False)]
 
@@ -200,21 +200,22 @@ class SessionList(OptionList):
 
     def on_focus(self):
         if self.highlighted is None:
-            self.highlighted = next(iter(self.selectable_indices()), None)
+            indices = self.selectable_indices()
+            self.highlighted = next((index for index in indices
+                                     if self.get_option_at_index(index).id == self.app.home_selection),
+                                    next(iter(indices), None))
 
     def on_blur(self):
+        if self.highlighted is not None and self.highlighted < self.option_count:
+            self.app.home_selection = self.get_option_at_index(self.highlighted).id
         self.highlighted = None
 
     def move(self, direction):
         indices = self.selectable_indices()
-        if self.highlighted not in indices:
-            self.app.query_one("#search").focus()
+        if not indices:
             return
-        index = indices.index(self.highlighted) + direction
-        if 0 <= index < len(indices):
-            self.highlighted = indices[index]
-        else:
-            self.app.move_home_focus(direction)
+        index = indices.index(self.highlighted) if self.highlighted in indices else -1
+        self.highlighted = indices[(index + direction) % len(indices)]
 
     def action_cursor_up(self):
         self.move(-1)
@@ -410,13 +411,13 @@ class ArcatomApp(CommandActions, App):
         Binding("ctrl+t", "activity", tr('代理与进程'), priority=True),
         Binding("ctrl+r", "refresh_sessions", tr('刷新'), priority=True),
         Binding("ctrl+q", "request_quit", tr('退出'), priority=True),
-        Binding("ctrl+c", "interrupt", tr('停止任务'), priority=True),
+        Binding("ctrl+c", "copy_selection", tr('复制'), priority=True),
         Binding("ctrl+x", "delete_session", tr('删除会话'), priority=True),
         Binding("escape", "escape", tr('返回'), priority=True),
     ]
 
     def __init__(self, cwd: str, client=None, demo=False):
-        super().__init__()
+        super().__init__(ansi_color=True)
         self.cwd, self.demo = cwd, demo
         self.client = client or CodexClient(cwd=cwd)
         self.store = Store()
@@ -424,6 +425,9 @@ class ArcatomApp(CommandActions, App):
         self.ready = False
         self.detail_open = False
         self.sending: set[str] = set()
+        self.stop_requested: set[str] = set()
+        self.interrupting: set[str] = set()
+        self.home_selection: str | None = None
         self.last_revision = -1
         self.requests = asyncio.Queue()
         self.activity_targets = {}
@@ -482,9 +486,12 @@ class ArcatomApp(CommandActions, App):
         self.appearance_preferences = dict(preferences)
         self.palette = palette_for(preferences)
         theme = self.palette.theme()
+        if self.palette.label == PALETTES["gray"].label:
+            theme.variables["arc-background"] = "ansi_default"
         theme.name = "arcatom-" + self.palette.label + self.palette.accent.lstrip("#")
         self.register_theme(theme)
         self.theme = theme.name
+        self.ansi_color = True
         self.transcript_cache.clear()
         self.transcript_signature = None
         if self.main_screen:
@@ -620,7 +627,9 @@ class ArcatomApp(CommandActions, App):
         if self.command_matches:
             return
         composer = self.query_one(Composer)
-        if not composer.read_only:
+        if self.current and (self.store.get(self.current).active_turn or self.current in self.sending):
+            hint = tr("Esc 停止任务 · Ctrl+C 复制 · Ctrl+T 代理与进程")
+        elif not composer.read_only:
             hint = tr("编辑 · Esc 浏览 · ↑↓ 历史输入 · Ctrl+J 换行 · F3 复制 · F2 设置")
         elif composer.has_focus:
             hint = tr("输入框已选中 · 直接输入 / Enter 编辑 · ↑ 浏览 · Esc / ← 首页")
@@ -681,7 +690,7 @@ class ArcatomApp(CommandActions, App):
                 yield SessionList(id="sessions")
                 yield OptionList(id="home-commands", classes="command-menu")
                 yield SessionSearch(placeholder=tr('⌕  搜索会话名称或工作目录…'), id="search")
-                yield Static(tr('Enter 新建 · ↑↓ 历史 · Ctrl+X 删除 · Ctrl+N 目录 · F2 设置'), id="home-hint", classes="muted")
+                yield Static(tr('↑↓ 选择会话 · Enter 打开 · 打字搜索 · Ctrl+N 新建 · F2 设置'), id="home-hint", classes="muted")
             with Vertical(id="chat"):
                 yield Static("", id="chat-title", markup=False)
                 yield Static("", id="chat-path", markup=False, classes="muted")
@@ -707,7 +716,7 @@ class ArcatomApp(CommandActions, App):
         self.query_one("#home-commands").display = False
         self.query_one("#attachments").display = False
         self.query_one("#older-history").display = False
-        self.query_one("#search").focus()
+        self.query_one("#sessions").focus()
         self.set_interval(0.15, self.paint)
         self.run_worker(self.connect(), name="connect", exit_on_error=False)
 
@@ -791,6 +800,8 @@ class ArcatomApp(CommandActions, App):
             method, params = message.get("method", ""), message.get("params", {})
             if method == "client/disconnected":
                 self.ready = False
+                self.stop_requested.clear()
+                self.interrupting.clear()
                 for session in self.store.sessions.values():
                     session.busy_since = None
                     session.resumed = False
@@ -801,6 +812,12 @@ class ArcatomApp(CommandActions, App):
                 self.notify(clean(params.get("message")), severity="error")
             else:
                 self.store.event(method, params)
+                tid = params.get("threadId")
+                if method == "turn/started" and tid in self.stop_requested:
+                    self.launch(self.interrupt_turn(tid))
+                elif method == "turn/completed":
+                    self.stop_requested.discard(tid)
+                    self.interrupting.discard(tid)
                 if self.current in self.store.removed:
                     self.current = None
                     self.show_home()
@@ -900,7 +917,7 @@ class ArcatomApp(CommandActions, App):
         elapsed = max(0, int(now - since))
         widget.update(Text.assemble(
             (f"{frame} {session.phase or tr('等待 Codex')}", self.palette.accent),
-            (f"  {elapsed}s" + (tr(' · Ctrl+C 停止') if session.active_turn else ""), self.palette.muted),
+            (f"  {elapsed}s" + (tr(' · Esc 停止') if session.active_turn else ""), self.palette.muted),
         ))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
@@ -987,6 +1004,7 @@ class ArcatomApp(CommandActions, App):
         self.query_one("#overview", Static).update(Text(tr('{0} 个会话    {1} 个运行中    账户累计 {2} tokens').format(len(self.store.roots()), active, number(lifetime)), style=self.palette.accent))
 
     def paint_chat(self):
+        self.update_navigation_hint()
         session = self.store.get(self.current)
         attachments = self.query_one("#attachments", Static)
         attachments.display = bool(session.attachments)
@@ -1146,6 +1164,8 @@ class ArcatomApp(CommandActions, App):
                     for turn in (result.get("initialTurnsPage") or {}).get("data", []):
                         if turn.get("status") == "inProgress":
                             session.active_turn = turn["id"]
+                    if tid in self.stop_requested:
+                        self.launch(self.interrupt_turn(tid))
             page = await self.client.call("thread/items/list", {
                 "threadId": tid, "limit": 40, "sortDirection": "desc",
                 "cursor": session.history_cursor if older else None})
@@ -1208,28 +1228,32 @@ class ArcatomApp(CommandActions, App):
         self.show_home()
 
     def move_home_focus(self, direction):
-        """Follow visual order through home actions, input and session rows."""
+        """Keep arrows within sessions. 方向键只选择会话，不经过按钮和输入框。"""
         options = self.query_one("#sessions", SessionList)
-        fields = ["new-session", "settings"]
-        if options.selectable_indices():
-            fields.append("sessions")
-        fields.append("search")
-        current = self.screen.focused.id if self.screen.focused else "search"
-        index = fields.index(current) if current in fields else fields.index("search")
-        target = self.query_one("#" + fields[(index + direction) % len(fields)])
-        target.focus()
-        if target is options:
-            indices = options.selectable_indices()
-            options.highlighted = indices[0 if direction > 0 else -1]
+        indices = options.selectable_indices()
+        if not indices:
+            self.query_one("#search").focus()
+            return
+        self.screen.set_focus(options)
+        options.highlighted = indices[0 if direction > 0 else -1]
 
     def show_home(self):
         if self.current:
+            self.home_selection = self.current
             self.store.get(self.current).draft = self.query_one("#composer", Composer).text
         self.query_one("#view", ContentSwitcher).current = "home"
         self.current = None
         self.hide_commands()
-        self.query_one("#search").focus()
         self.paint(force=True)
+        options = self.query_one("#sessions", SessionList)
+        if options.selectable_indices():
+            self.screen.set_focus(options)
+            for index in options.selectable_indices():
+                if options.get_option_at_index(index).id == self.home_selection:
+                    options.highlighted = index
+                    break
+        else:
+            self.query_one("#search").focus()
 
     @on(Composer.Submitted)
     def submit(self):
@@ -1246,7 +1270,7 @@ class ArcatomApp(CommandActions, App):
             self.query_one("#slash-commands").display = False
             self.query_one("#home-commands").display = False
             self.update_navigation_hint()
-            self.query_one("#home-hint", Static).update(tr('Enter 新建 · ↑↓ 历史 · / 命令 · Ctrl+X 删除 · Ctrl+N 目录'))
+            self.query_one("#home-hint", Static).update(tr('↑↓ 选择会话 · Enter 打开 · 打字搜索 · Ctrl+N 新建 · F2 设置'))
 
     def refresh_commands(self, text):
         if self.screen is not self.main_screen:
@@ -1383,6 +1407,18 @@ class ArcatomApp(CommandActions, App):
             )
             if context:
                 params["additionalContext"] = context
+            if tid in self.stop_requested and not session.active_turn:
+                session.pending_messages.pop(message_id, None)
+                session.items.pop(message_id, None)
+                session.attachments[0:0] = images
+                if self.current == tid and not composer.text:
+                    composer.load_text(prompt)
+                else:
+                    session.draft = prompt
+                session.busy_since = None
+                session.phase = ""
+                self.stop_requested.discard(tid)
+                return
             if session.active_turn:
                 params["expectedTurnId"] = session.active_turn
                 await self.client.call("turn/steer", params)
@@ -1405,6 +1441,7 @@ class ArcatomApp(CommandActions, App):
                 elif self.current != tid and not session.draft:
                     session.draft = prompt
             if not session.active_turn:
+                self.stop_requested.discard(tid)
                 session.busy_since = None
                 session.phase = ""
             raise
@@ -1557,16 +1594,21 @@ class ArcatomApp(CommandActions, App):
         self.push_screen(Detail(tr('用量概览'), Text(clean("\n".join(lines)))))
 
     def action_escape(self):
-        if self.screen is self.main_screen and self.command_matches:
-            self.hide_commands()
-        elif self.screen is not self.main_screen:
-            # Let the modal handle Esc; never close an approval as accepted.
+        if self.screen is not self.main_screen:
+            # Modals own Escape before task interruption. 弹窗优先处理 Esc。
             if isinstance(self.screen, Settings):
                 self.screen.action_cancel()
             elif isinstance(self.screen, Approval):
                 self.screen.dismiss(False)
             else:
                 self.screen.dismiss(None)
+        elif self.current and (self.store.get(self.current).active_turn or
+                               self.current in self.sending or
+                               self.current in self.stop_requested or
+                               self.store.get(self.current).meta.get("status", {}).get("type") == "active"):
+            self.action_interrupt()
+        elif self.command_matches:
+            self.hide_commands()
         elif self.current:
             if self.query_one(Composer).has_focus and not self.query_one(Composer).read_only:
                 self.leave_composer()
@@ -1574,19 +1616,39 @@ class ArcatomApp(CommandActions, App):
                 self.action_activity()
             else:
                 self.show_home()
+        elif self.query_one("#search").has_focus:
+            self.move_home_focus(1)
 
     def action_interrupt(self):
-        focused = self.screen.focused
-        if getattr(focused, "selected_text", "") or self.screen.get_selected_text():
-            self.action_copy_selection()
+        """Stop the current turn without changing focus. 停止任务并保留当前焦点。"""
+        if self.screen is not self.main_screen or not self.current:
             return
-        if self.screen is not self.main_screen:
+        tid = self.current
+        self.stop_requested.add(tid)
+        self.launch(self.interrupt_turn(tid))
+
+    async def interrupt_turn(self, tid: str):
+        """Await a known turn ID; never resend while stopping. 等待回合 ID 后停止。"""
+        session = self.store.get(tid)
+        if tid in self.interrupting or (not session.active_turn and tid in self.sending):
             return
-        if self.current and self.store.get(self.current).active_turn:
-            session = self.store.get(self.current)
-            self.launch(self.client.call("turn/interrupt", {"threadId": session.id, "turnId": session.active_turn}))
-        else:
-            self.notify(tr('当前没有运行中的回合。Ctrl+Q 退出。'))
+        self.interrupting.add(tid)
+        try:
+            if not session.active_turn:
+                page = await self.client.call("thread/turns/list", {
+                    "threadId": tid, "limit": 1, "itemsView": "notLoaded",
+                    "sortDirection": "desc"})
+                session.active_turn = next((turn["id"] for turn in page.get("data", [])
+                                            if turn.get("status") == "inProgress"), None)
+            if not session.active_turn:
+                self.interrupting.discard(tid)
+                self.stop_requested.discard(tid)
+                return
+            await self.client.call("turn/interrupt", {"threadId": tid, "turnId": session.active_turn})
+        except Exception:
+            self.interrupting.discard(tid)
+            self.stop_requested.discard(tid)
+            raise
 
     def action_request_quit(self):
         if self.screen is not self.main_screen:

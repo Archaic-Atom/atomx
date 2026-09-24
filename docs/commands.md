@@ -26,7 +26,7 @@
 | export | 导出已加载会话为 Markdown；文件已存在时拒绝覆盖 |
 | mention | 选择文件或输入路径，插入待发送文本；扫描最多 1500 项 |
 | cd / pwd / cwd | 修改或查看会话工作目录 |
-| ps / stop / clean | 查看后台终端 / 停止全部后台终端；Ctrl+C 才是停止模型回合 |
+| ps / stop / clean | 查看后台终端 / 停止全部后台终端；Esc 停止模型回合，Ctrl+C 用于复制 |
 | init | 让 Codex 检查项目并生成或完善 AGENTS.md |
 | mcp | 读取 MCP 服务和工具清单 |
 | debug-config / warnings / rollout | 配置来源、诊断信息和会话存储路径；配置认证字段遮盖 |

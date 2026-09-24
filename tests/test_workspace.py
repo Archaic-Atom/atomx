@@ -129,7 +129,7 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
-            await pilot.press("enter")
+            await pilot.press("ctrl+l", "enter")
             await pilot.pause(.2)
             self.assertEqual(sum(m == "thread/start" for m, _ in client.calls), 1)
             self.assertIsNotNone(app.current)
@@ -298,7 +298,7 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
             options = app.query_one("#sessions", OptionList)
             self.assertEqual(sum(options.get_option_at_index(i).disabled
                                  for i in range(options.option_count)), 3)
-            self.assertIsNone(options.highlighted)
+            self.assertEqual(options.get_option_at_index(options.highlighted).id, "demo-login")
             await pilot.press("up", "up", "up")
             app.store.event("turn/started", {"threadId": "demo-dashboard", "turn": {"id": "t"}})
             app.paint(force=True)

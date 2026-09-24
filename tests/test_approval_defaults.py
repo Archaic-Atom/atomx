@@ -30,7 +30,7 @@ class ApprovalDefaultsUiTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
-            await pilot.press("enter")
+            await pilot.press("ctrl+l", "enter")
             await pilot.pause(.2)
             started = [p for method, p in client.calls if method == "thread/start"][-1]
             self.assertEqual(started["approvalsReviewer"], "auto_review")

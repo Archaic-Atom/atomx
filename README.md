@@ -49,7 +49,7 @@ Long conversations open immediately and load their newest 40 items in the backgr
 | Where / action | Keys |
 | --- | --- |
 | Home: start a new session | Empty search + `Enter` |
-| Home: select and resume history | `↑` / `↓`, then `Enter`; typing filters sessions |
+| Home: select and resume history | Selected by default; `↑` / `↓` cycle through sessions, `Enter` opens; typing focuses search |
 | Choose a directory for a new session | `Ctrl+N`, `/new`, or the New session button |
 | Home: permanently delete selected history | `Ctrl+X` (no second confirmation) |
 | Editor: recall sent prompts | `↑` on the first line, then `↑` / `↓`; down past the latest restores the unsent draft |
@@ -68,10 +68,10 @@ Long conversations open immediately and load their newest 40 items in the backgr
 | Subagents and processes | `Ctrl+T`, then `↑↓` and `Enter` for details |
 | Settings / colors / language | `F2`, `/settings`, `/palette` |
 | Usage / refresh | `Ctrl+U` / `Ctrl+R` |
-| Interrupt current turn | `Ctrl+C` when no text is selected |
+| Interrupt current turn | `Esc` while a turn is running; closes any open dialog first |
 | Quit | `Ctrl+Q` or `/quit` |
 
-The input is editable on entry. **Esc → browse → Esc → home** preserves your draft. PageUp/PageDown remain optional scrolling shortcuts. Tab and Shift+Tab navigate controls, including settings and dialogs. The larger home input sits below the session list. Home arrows move a single focus through buttons, sessions and input; ↑ from the input selects the last session, and ↓ from the last session returns to the input. Mouse selection never copies automatically; clipboard copy does not interrupt a running turn when text is selected.
+The input is editable on entry. **Esc → browse → Esc → home** preserves your draft. PageUp/PageDown remain optional scrolling shortcuts. Tab and Shift+Tab navigate controls, including settings and dialogs. The larger home input sits below the session list. Home arrows stay in the session list and wrap at either end. The New session and Settings buttons are skipped by keyboard focus; use Ctrl+N and F2. Typing focuses the bottom search input; Ctrl+L also focuses it, and empty input + Enter creates a session. Mouse selection never copies automatically; Ctrl+C only copies and never interrupts a turn. While a task runs, Esc stops it and preserves focus and drafts; when idle, Esc leaves editing, then returns home. Open dialogs handle Esc first.
 
 The home list has separate colored **Needs your attention**, **Working**, and **History** section headings. Each session occupies one row: title and working directory, plus a reply/task preview on wider terminals. Live approval/question flags take priority. Sessions created or completed in this app, and sessions with drafts or pending images, await input. Old idle sessions remain history. Only statuses available from this app's backend can be shown; another Codex process may own work this backend cannot observe or control.
 
@@ -79,7 +79,7 @@ The home list has separate colored **Needs your attention**, **Working**, and **
 
 Shell commands occupy one status line in the conversation, even when they contain multiline scripts. Long commands are ellipsized; press `Ctrl+T`, select a command and press `Enter` to see the complete script and output.
 
-The default appearance is **Graphite + Copper**. Settings offers Warm sand, Midnight, Forest, Graphite and Paper palettes, accent swatches, language, compact layout, output following and the new-session directory. Use ↑/↓ to move between settings, Enter to open a choice, ↑/↓ to choose, and Enter to confirm. Esc closes the choice first, then leaves settings; Ctrl+S saves. Directory editing also starts with Enter, and Esc cancels that field edit. Colors preview immediately; Cancel restores the previous appearance. Language applies on Save. User messages have a separate gray background; changing the interface language does not translate user messages, model replies, paths or server data.
+The default appearance is **Graphite + Copper**. Graphite uses the terminal default background so the terminal’s existing transparency setting remains visible; input surfaces, selection and dialogs retain their contrast. Other palettes keep their own background colors. Settings offers Warm sand, Midnight, Forest, Graphite and Paper palettes, accent swatches, language, compact layout, output following and the new-session directory. Use ↑/↓ to move between settings, Enter to open a choice, ↑/↓ to choose, and Enter to confirm. Esc closes the choice first, then leaves settings; Ctrl+S saves. Directory editing also starts with Enter, and Esc cancels that field edit. Colors preview immediately; Cancel restores the previous appearance. Language applies on Save. User messages have a separate gray background; changing the interface language does not translate user messages, model replies, paths or server data.
 
 Usage stays in the status bar: time, cumulative session tokens, remaining context, remaining rate-limit windows and model. Missing values are hidden or shown as `—`; cached input is not counted twice. Session totals can overlap through inherited history and are not billing totals. Account limits refresh every minute; `Ctrl+R` refreshes manually.
 

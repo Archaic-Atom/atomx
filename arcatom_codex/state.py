@@ -175,7 +175,11 @@ class Store:
         if pid:
             agent = self.get(pid).agents.setdefault(session.id, {"id": session.id})
             agent["name"] = meta.get("agentNickname") or meta.get("agentRole") or session.title
-            agent["runtimeStatus"] = meta.get("status", {}).get("type")
+            runtime = meta.get("status", {}).get("type")
+            agent["runtimeStatus"] = runtime
+            if runtime == "active" or (runtime == "idle" and agent.get("status") in
+                                       (None, "running", "active", "pendingInit")):
+                agent["status"] = runtime
         self.revision += 1
         return session
 
@@ -249,6 +253,18 @@ class Store:
         elif method == "error":
             message = params.get("error", {}).get("message", tr('未知错误'))
             session.ingest({"id": f"error-{self.revision}", "type": "notice", "text": message})
+        if method in ("thread/status/changed", "turn/started", "turn/completed", "thread/closed"):
+            for parent in self.sessions.values():
+                agent = parent.agents.get(tid)
+                if agent is not None:
+                    if method == "turn/started":
+                        agent["status"] = "running"
+                    elif method == "turn/completed":
+                        agent["status"] = "errored" if params["turn"].get("error") else "completed"
+                    elif method == "thread/closed":
+                        agent["status"] = "shutdown"
+                    else:
+                        agent["status"] = params["status"]["type"]
         self.revision += 1
 
     def roots(self, query: str = "") -> list[Session]:

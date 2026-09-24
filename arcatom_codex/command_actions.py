@@ -304,7 +304,7 @@ class CommandActions:
         elif name in ("compact", "review"):
             await self.ensure_resumed(tid)
             if session.active_turn or tid in self.sending:
-                raise RpcError(tr('请等待当前回合结束，或按 Ctrl+C 停止后再执行。'))
+                raise RpcError(tr('请等待当前回合结束，或按 Esc 停止后再执行。'))
             target = {"type": "custom", "instructions": argument} if argument else {"type": "uncommittedChanges"}
             if name == "review" and not argument:
                 kind = await self.choose(tr('审查范围'), [("uncommittedChanges", tr('当前工作区修改')), ("baseBranch", tr('与指定分支比较')), ("commit", tr('指定提交'))])
@@ -347,7 +347,7 @@ class CommandActions:
             self.show_text(tr('任务目标 · /goal 目标 · pause / resume / clear'), result)
         elif name in ("archive", "delete"):
             if session.active_turn or tid in self.sending:
-                raise RpcError(tr('请先按 Ctrl+C 停止当前任务。'))
+                raise RpcError(tr('请先按 Esc 停止当前任务。'))
             await self.client.call("thread/" + name, {"threadId": tid})
             if name == "delete":
                 self.store.remove_thread(tid)
@@ -363,7 +363,7 @@ class CommandActions:
             await self.ensure_resumed(tid)
             await self.client.call("thread/backgroundTerminals/clean", {"threadId": tid})
             await self.refresh_activity(tid)
-            self.command_notice(tid, tr('已停止当前会话的后台终端。Ctrl+C 可停止模型回合。'))
+            self.command_notice(tid, tr('已停止当前会话的后台终端。Esc 可停止模型回合。'))
         elif name == "skills":
             await self.select_skill(session)
         elif name == "mcp":
@@ -419,7 +419,7 @@ class CommandActions:
                 self.view_preferences["title"] = value
                 await self.save_view_preferences()
         elif name == "help":
-            self.show_text(tr('命令与快捷键'), tr('输入 / 显示提示；↑↓ 选择，Tab 补全，Enter 执行，Esc 收起。\n← 空输入返回列表；Ctrl+X 删除选中历史；Ctrl+C 停止回合。\n带‘原生’的命令会打开官方 Codex，退出后回到 Arcatom。\n\n') +
+            self.show_text(tr('命令与快捷键'), tr('输入 / 显示提示；↑↓ 选择，Tab 补全，Enter 执行，Esc 收起。\n← 空输入返回列表；Ctrl+X 删除选中历史；Esc 停止回合；Ctrl+C 复制。\n带‘原生’的命令会打开官方 Codex，退出后回到 Arcatom。\n\n') +
                 "\n".join(f"/{c.name:24} {tr(c.description)}" + (tr('  [原生]') if c.native else "") for c in COMMANDS))
 
     async def select_skill(self, session):
