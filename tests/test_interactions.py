@@ -86,7 +86,10 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause(.2)
-            await pilot.press("up", "up", "ctrl+x", "ctrl+x")
+            await pilot.press("up", "up", "ctrl+x")
+            self.assertFalse(client.entered.is_set())
+            self.assertNotIn("demo-dashboard", app.deleting)
+            await pilot.press("ctrl+x", "ctrl+x")
             await asyncio.wait_for(client.entered.wait(), 2)
             self.assertIn("demo-dashboard", app.store.sessions)
             client.release.set()
@@ -97,12 +100,38 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
             options = app.query_one("#sessions", OptionList)
             self.assertEqual(options.get_option_at_index(options.highlighted).id, "demo-readme")
 
+    async def test_delete_confirmation_expires_and_cancels_on_navigation(self):
+        client = DemoClient()
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
+        async with app.run_test() as pilot:
+            await pilot.pause(.2)
+            await pilot.press("ctrl+x")
+            self.assertFalse(any(m == "thread/delete" for m, _ in client.calls))
+            app.paint(force=True)
+            await pilot.pause(.1)
+            self.assertIsNotNone(app.delete_confirmation)
+            await pilot.press("down", "up", "ctrl+x")
+            self.assertFalse(any(m == "thread/delete" for m, _ in client.calls))
+            await pilot.press("escape", "ctrl+x")
+            self.assertFalse(any(m == "thread/delete" for m, _ in client.calls))
+            await pilot.pause(3.1)
+            await pilot.press("ctrl+x")
+            self.assertFalse(any(m == "thread/delete" for m, _ in client.calls))
+            await pilot.press("f2", "escape", "ctrl+x")
+            self.assertFalse(any(m == "thread/delete" for m, _ in client.calls))
+            await pilot.press("ctrl+x")
+            await pilot.pause(.2)
+            deleted = [p["threadId"] for m, p in client.calls if m == "thread/delete"]
+            self.assertEqual(deleted, ["demo-login"])
+            self.assertIn("demo-dashboard", app.store.sessions)
+
     async def test_delete_failure_keeps_history(self):
         client = PausedClient("thread/delete", fail=True)
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
             await pilot.pause(.2)
-            await pilot.press("up", "up", "ctrl+x")
+            await pilot.press("up", "up", "ctrl+x", "ctrl+x")
+            await asyncio.wait_for(client.entered.wait(), 2)
             client.release.set()
             await pilot.pause(.2)
             self.assertIn("demo-dashboard", app.store.sessions)

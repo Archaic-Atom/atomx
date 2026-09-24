@@ -419,7 +419,7 @@ class CommandActions:
                 self.view_preferences["title"] = value
                 await self.save_view_preferences()
         elif name == "help":
-            self.show_text(tr('命令与快捷键'), tr('输入 / 显示提示；↑↓ 选择，Tab 补全，Enter 执行，Esc 收起。\n← 空输入返回列表；Ctrl+X 删除选中历史；Esc 停止回合；Ctrl+C 复制。\n带‘原生’的命令会打开官方 Codex，退出后回到 Arcatom。\n\n') +
+            self.show_text(tr('命令与快捷键'), tr('输入 / 显示提示；↑↓ 选择，Tab 补全，Enter 执行，Esc 收起。\n← 空输入返回列表；连按两次 Ctrl+X 删除选中历史；Esc 停止回合；Ctrl+C 复制。\n带‘原生’的命令会打开官方 Codex，退出后回到 Arcatom。\n\n') +
                 "\n".join(f"/{c.name:24} {tr(c.description)}" + (tr('  [原生]') if c.native else "") for c in COMMANDS))
 
     async def select_skill(self, session):

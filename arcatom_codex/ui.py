@@ -206,6 +206,7 @@ class SessionList(OptionList):
                                     next(iter(indices), None))
 
     def on_blur(self):
+        self.app.delete_confirmation = None
         if self.highlighted is not None and self.highlighted < self.option_count:
             self.app.home_selection = self.get_option_at_index(self.highlighted).id
         self.highlighted = None
@@ -437,6 +438,7 @@ class ArcatomApp(CommandActions, App):
         self.account_timer = None
         self.account_loading = False
         self.deleting: set[str] = set()
+        self.delete_confirmation: tuple[str, float] | None = None
         self.last_status_second = -1
         self.transcript_cache: dict[str, tuple] = {}
         self.transcript_signature = None
@@ -470,6 +472,10 @@ class ArcatomApp(CommandActions, App):
 
     async def on_event(self, event: events.Event) -> None:
         """Route typing before list shortcuts can consume it. 输入首字不被列表吞掉。"""
+        if isinstance(event, events.InputEvent) and not event.is_forwarded and (
+                isinstance(event, events.Key) and event.key != "ctrl+x" or
+                isinstance(event, (events.MouseDown, events.Paste))):
+            self.delete_confirmation = None
         typing = (isinstance(event, events.Key) and event.is_printable or
                   isinstance(event, events.Paste))
         if (typing and not event.is_forwarded and self.main_screen is not None
@@ -928,10 +934,15 @@ class ArcatomApp(CommandActions, App):
 
     @on(OptionList.OptionHighlighted, "#sessions")
     def session_highlighted(self):
+        options = self.query_one("#sessions", OptionList)
+        selected = (options.get_option_at_index(options.highlighted).id
+                    if options.highlighted is not None and options.option_count else None)
+        if self.delete_confirmation and self.delete_confirmation[0] != selected:
+            self.delete_confirmation = None
         self.paint_status()
 
     def action_delete_session(self):
-        """Delete only the selected history entry. 仅删除用户选中的历史会话。"""
+        """Require two presses on the same history. 同一会话连按两次才删除。"""
         if not self.ready or self.current is not None or self.screen is not self.main_screen:
             return
         options = self.query_one("#sessions", OptionList)
@@ -944,8 +955,17 @@ class ArcatomApp(CommandActions, App):
             return
         session = self.store.get(tid)
         if session.active_turn or tid in self.sending or session.pending_requests or session.meta.get("status", {}).get("type") == "active":
+            self.delete_confirmation = None
             self.notify(tr('这个会话还在运行，请先进入会话停止任务。'), severity="warning")
             return
+        now = time.monotonic()
+        if (not self.delete_confirmation or self.delete_confirmation[0] != tid
+                or now > self.delete_confirmation[1]):
+            self.delete_confirmation = (tid, now + 3)
+            self.notify(tr('3 秒内再按一次 Ctrl+X，永久删除「{0}」；其他操作取消。').format(
+                session.title[:50]), severity="warning", timeout=3)
+            return
+        self.delete_confirmation = None
         index = options.highlighted
         self.deleting.add(tid)
         self.paint_sessions()

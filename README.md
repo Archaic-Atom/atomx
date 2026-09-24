@@ -51,7 +51,7 @@ Long conversations open immediately and load their newest 40 items in the backgr
 | Home: start a new session | Empty search + `Enter` |
 | Home: select and resume history | Selected by default; `↑` / `↓` cycle through sessions, `Enter` opens; typing focuses search |
 | Choose a directory for a new session | `Ctrl+N`, `/new`, or the New session button |
-| Home: permanently delete selected history | `Ctrl+X` (no second confirmation) |
+| Home: permanently delete selected history | `Ctrl+X` twice within 3 seconds; other actions cancel |
 | Editor: recall sent prompts | `↑` on the first line, then `↑` / `↓`; down past the latest restores the unsent draft |
 | Editor: browse the conversation | `Esc` leaves editing and focuses the transcript |
 | Transcript: scroll / jump | `↑` / `↓`; two quick `↑` presses jump to top, two quick `↓` presses jump to bottom |

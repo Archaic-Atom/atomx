@@ -196,7 +196,7 @@
   "模型 · 会话名称": "Model · Session name",
   "终端标题": "Terminal title",
   "命令与快捷键": "Commands & shortcuts",
-  "输入 / 显示提示；↑↓ 选择，Tab 补全，Enter 执行，Esc 收起。\n← 空输入返回列表；Ctrl+X 删除选中历史；Esc 停止回合；Ctrl+C 复制。\n带‘原生’的命令会打开官方 Codex，退出后回到 Arcatom。\n\n": "Type / for commands; ↑↓ choose, Tab complete, Enter run, Esc close.\nEmpty input ← returns home; Ctrl+X deletes selected history; Esc stops a turn; Ctrl+C copies.\nNative commands open official Codex; quit it to return to Arcatom.\n\n",
+  "输入 / 显示提示；↑↓ 选择，Tab 补全，Enter 执行，Esc 收起。\n← 空输入返回列表；连按两次 Ctrl+X 删除选中历史；Esc 停止回合；Ctrl+C 复制。\n带‘原生’的命令会打开官方 Codex，退出后回到 Arcatom。\n\n": "Type / for commands; ↑↓ choose, Tab complete, Enter run, Esc close.\nEmpty input ← returns home; Press Ctrl+X twice to delete selected history; Esc stops a turn; Ctrl+C copies.\nNative commands open official Codex; quit it to return to Arcatom.\n\n",
   "Skills · 选择后输入任务": "Skills · Choose, then type your task",
   "导出 Markdown 文件路径": "Export Markdown file path",
   "已导出：": "Exported: ",
@@ -325,5 +325,6 @@
   "正在加载最近的会话记录…": "Loading recent messages…",
   "会话记录加载失败：": "Unable to load messages: ",
   "↑↓ 选择会话 · Enter 打开 · 打字搜索 · Ctrl+N 新建 · F2 设置": "↑↓ Sessions · Enter Open · Type to search · Ctrl+N New · F2 Settings",
-  "Esc 停止任务 · Ctrl+C 复制 · Ctrl+T 代理与进程": "Esc Stop task · Ctrl+C Copy · Ctrl+T Agents & processes"
+  "Esc 停止任务 · Ctrl+C 复制 · Ctrl+T 代理与进程": "Esc Stop task · Ctrl+C Copy · Ctrl+T Agents & processes",
+  "3 秒内再按一次 Ctrl+X，永久删除「{0}」；其他操作取消。": "Press Ctrl+X again within 3 seconds to permanently delete “{0}”; any other action cancels."
 }
