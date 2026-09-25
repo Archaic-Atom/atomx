@@ -635,9 +635,10 @@ class AtomXApp(
 
     @on(OptionList.OptionHighlighted, "#sessions")
     def session_highlighted(self) -> None:
-        """Reset deletion confirmation and directory animation on selection.
+        """Reset selection state only while the session list is available.
 
-        选择变化后重置确认与动画。
+        Ignore late notifications during shutdown.
+        仅在会话列表可用时更新选择状态；关闭期间忽略延迟通知。
         """
         if self._exit:
             return
