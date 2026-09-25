@@ -28,6 +28,17 @@ class DelayedStart(DemoClient):
 
 
 class NavigationRuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_late_session_highlight_after_shutdown(self):
+        """Ignore a queued selection after unmount. 卸载后忽略延迟的会话选择事件。"""
+        app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
+        # run_test yields only after the app and its screen have mounted.
+        # run_test 在应用及界面挂载完成后才进入上下文，无需固定等待。
+        async with app.run_test(size=(80, 24)):
+            self.assertTrue(app.query_one("#sessions").is_mounted)
+        previous = (app.marquee_tid, app.marquee_step, app.delete_confirmation)
+        app.session_highlighted()
+        self.assertEqual((app.marquee_tid, app.marquee_step, app.delete_confirmation), previous)
+
     async def test_escape_closes_settings_then_interrupts_then_navigates(self):
         client = DemoClient()
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
