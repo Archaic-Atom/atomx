@@ -539,6 +539,8 @@ class AtomXApp(
 
         布局稳定后刷新。
         """
+        if not self.is_running or self._exit:
+            return
         if self.main_screen:
             self.main_screen.set_class(self.compact_layout, "compact")
             self.query_one("#brand", Static).update(
@@ -586,7 +588,9 @@ class AtomXApp(
 
     def paint(self, force: bool = False) -> None:
         """Refresh changed views and the current status line. 更新变化的界面与状态栏。"""
-        if self._exit or not self.query("#waiting"):
+        # Textual stops the message pump before unmounting child widgets.
+        # 卸载子控件之前消息循环即停止；此时部分控件可能仍在 DOM 中。
+        if not self.is_running or self._exit or not self.query("#waiting"):
             return
         self.paint_terminal_title()
         if self.main_screen:
@@ -635,11 +639,16 @@ class AtomXApp(
 
     @on(OptionList.OptionHighlighted, "#sessions")
     def session_highlighted(self) -> None:
-        """Reset deletion confirmation and directory animation on selection.
+        """Reset selection state only while the session list is available.
 
-        选择变化后重置确认与动画。
+        Ignore late notifications during shutdown.
+        仅在会话列表可用时更新选择状态；关闭期间忽略延迟通知。
         """
-        options = self.query_one("#sessions", SessionList)
+        if not self.is_running or self._exit:
+            return
+        options = next(iter(self.query(SessionList)), None)
+        if options is None:
+            return
         selected = (
             options.get_option_at_index(options.highlighted).id
             if options.highlighted is not None and options.option_count
@@ -696,7 +705,11 @@ class AtomXApp(
 
     def refresh_commands(self, text: str) -> None:
         """Filter slash suggestions using the current input. 根据输入筛选斜杠命令。"""
-        if self.screen is not self.main_screen:
+        if (
+            not self.is_running
+            or self._exit
+            or self.screen is not self.main_screen
+        ):
             return
         self.command_matches = (
             matches(text) if text != self.command_dismissed else []
@@ -728,6 +741,8 @@ class AtomXApp(
     @on(TextArea.Changed, "#composer")
     def composer_changed(self) -> None:
         """Resize the composer and update matching commands. 调整输入高度并刷新命令匹配。"""
+        if not self.is_running or self._exit:
+            return
         composer = self.query_one(Composer)
         self.refresh_commands(composer.text)
         self.call_after_refresh(composer.fit_height)

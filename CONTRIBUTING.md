@@ -1,6 +1,24 @@
 # Contributing
 
-The default branch is `master`. Create a feature branch and open a pull request against it.
+The default branch is `master`; it receives changes only through pull requests.
+Do not commit or push directly to `master`.
+
+## Branch and pull request workflow
+
+- `dev` is the integration branch. Start task branches such as `feature/...`,
+  `fix/...`, or `docs/...` from an up-to-date `dev`.
+- Commit and push work on the task branch, then open a pull request into `dev`.
+  Include the concrete behavior change and relevant validation. Merge after CI
+  passes and the requested review or user acceptance is complete.
+- Promote integrated changes through a separate `dev` → `master` pull request.
+  Keep the existing `master` name. Do not force-push or rewrite published history.
+- A request to “commit” means following this branch/PR workflow; it is not
+  permission to bypass the integration branch or push directly to `master`.
+- Tag and publish releases only after the release candidate has user acceptance.
+
+`master` 为稳定主分支，禁止直接提交或推送。开发从 `dev` 创建功能、修复或文档分支，
+通过 PR 合并到 `dev`，再由 `dev` 发起 PR 合并到 `master`。CI 通过并完成相应验收后再合并；
+“提交”不代表允许绕过 PR。正式版本须验收后打标签和发布。
 
 ## Local setup
 

@@ -34,6 +34,8 @@ class ViewActions(AppActions):
 
     def paint_status(self) -> None:
         """Follow the user's Claude status line. 复用用户的状态栏规范。"""
+        if not self.workspace.is_running or self.workspace._exit:
+            return
         session = (
             self.workspace.store.get(self.workspace.current or "")
             if self.workspace.current

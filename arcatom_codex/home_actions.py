@@ -53,7 +53,9 @@ class HomeActions(AppActions):
     def advance_directory(self) -> None:
         """Animate only the selected row without changing focus. 仅滚动选中目录。"""
         if (
-            self.workspace.current
+            not self.workspace.is_running
+            or self.workspace._exit
+            or self.workspace.current
             or self.workspace.screen is not self.workspace.main_screen
         ):
             return
@@ -127,6 +129,8 @@ class HomeActions(AppActions):
 
         重建分组并保持所选会话。
         """
+        if not self.workspace.is_running or self.workspace._exit:
+            return
         sessions = self.workspace.store.roots(
             self.workspace.query_one("#search", Input).value
         )
