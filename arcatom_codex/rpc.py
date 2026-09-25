@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from collections import deque
 from collections.abc import AsyncIterator
 from typing import Any
 
 from websockets.asyncio.client import ClientConnection
 
+from . import __version__
 from .i18n import tr
 from .platform_support import executable_argv
 
@@ -47,6 +49,7 @@ class CodexClient:
         self.tasks: list[asyncio.Task] = []
         self.websocket: ClientConnection | None = None
         self.remote_endpoint: str | None = None
+        self.server_version: str | None = None
         self.sequence = 0
         self.closing = False
 
@@ -123,17 +126,32 @@ class CodexClient:
 
         发送客户端标识与初始化通知。
         """
-        await self.call(
+        self.server_version = None
+        response = await self.call(
             "initialize",
             {
                 "clientInfo": {
                     "name": "arcatom_codex",
                     "title": "AtomX",
-                    "version": "0.1.0",
+                    "version": __version__,
                 },
                 "capabilities": {"experimentalApi": True},
             },
         )
+        # The leading version belongs to Codex; the trailing one is ours.
+        # userAgent 开头是后端版本，末尾括号内才是客户端版本。
+        user_agent = (
+            response.get("userAgent") if isinstance(response, dict) else None
+        )
+        match = (
+            re.match(
+                r"^[^/\s]+/(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)(?:\s|$)",
+                user_agent or "",
+            )
+            if isinstance(user_agent, str)
+            else None
+        )
+        self.server_version = match.group(1) if match else None
         await self.send({"method": "initialized", "params": {}})
 
     async def send(self, message: dict) -> None:

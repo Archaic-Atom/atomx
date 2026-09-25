@@ -95,6 +95,9 @@ The home list has separate colored **Needs your attention**, **Working**, and **
 
 ## Appearance and usage
 
+The home header shows the AtomX package version and the connected Codex backend version.
+Codex shows `—` before a successful connection or when version metadata is unavailable.
+
 Home rows use four aligned columns: **Title / Summary / Directory / Last active**, with a 26:30:26:18 width ratio as the terminal resizes. Column labels are hidden, with a blank spacer above the groups. Times are local (`MM-DD HH:MM`); missing timestamps show `—`. The selected row’s long directory scrolls from start to end while other columns stay fixed.
 
 The composer grows with typed, pasted and wrapped lines, then shrinks when cleared. The conversation reflows with it and keeps the latest line visible when following output; browsing older messages preserves your position. `Shift+Enter` (or `Ctrl+J`) inserts a newline and moves the cursor onto it. When the draft exceeds the available terminal height, it scrolls while keeping a small part of the conversation visible.

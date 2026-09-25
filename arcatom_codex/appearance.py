@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from rich.text import Text
 from textual.theme import Theme
 
+from . import __version__
 from .i18n import tr
 
 
@@ -177,7 +178,13 @@ ROBOT = (
 ROBOT_COMPACT = (" +---+---+ ", "-| o   o |-", " +---~---+ ")
 
 
-def brand(palette: Palette, compact: bool, home: bool) -> Text:
+def brand(
+    palette: Palette,
+    compact: bool,
+    home: bool,
+    codex_version: str | None = None,
+    width: int | None = None,
+) -> Text:
     """Render an ASCII robot with equal-width sides. 等宽字符避免边框错位。"""
     if not home:
         return Text.assemble(
@@ -188,9 +195,18 @@ def brand(palette: Palette, compact: bool, home: bool) -> Text:
     for index, line in enumerate(rows):
         result.append(line, palette.accent)
         if index == len(rows) // 2:
-            result.append("  AtomX", "bold " + palette.foreground)
-            result.append(" / CODEX", palette.muted)
-            result.append(tr("  ·  继续你的工作"), palette.foreground)
+            label = Text.assemble(
+                ("  AtomX", "bold " + palette.foreground),
+                (f" v{__version__} / CODEX ", palette.muted),
+                (f"v{codex_version}" if codex_version else "—", palette.muted),
+            )
+            caption = tr("  ·  继续你的工作")
+            result.append_text(label)
+            if (
+                width is None
+                or len(line) + label.cell_len + Text(caption).cell_len <= width
+            ):
+                result.append(caption, palette.foreground)
         if index < len(rows) - 1:
             result.append("\n")
     return result

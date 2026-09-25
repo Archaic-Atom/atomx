@@ -459,7 +459,16 @@ class AtomXApp(
 
     def compose(self) -> ComposeResult:
         """Build the screen or widget tree. 构造界面控件树。"""
-        yield Static(brand(self.palette, self.compact_layout, True), id="brand")
+        yield Static(
+            brand(
+                self.palette,
+                self.compact_layout,
+                True,
+                self.client.server_version,
+                self.size.width - 4,
+            ),
+            id="brand",
+        )
         yield Static("", id="connection", markup=False)
         with ContentSwitcher(initial="home", id="view"):
             with Vertical(id="home"):
@@ -533,7 +542,13 @@ class AtomXApp(
         if self.main_screen:
             self.main_screen.set_class(self.compact_layout, "compact")
             self.query_one("#brand", Static).update(
-                brand(self.palette, self.compact_layout, not self.current)
+                brand(
+                    self.palette,
+                    self.compact_layout,
+                    not self.current,
+                    self.client.server_version if self.ready else None,
+                    self.size.width - 4,
+                )
             )
             self.paint_status()
             if not self.current:
@@ -586,7 +601,13 @@ class AtomXApp(
         self.last_revision = self.store.revision
         self.main_screen.set_class(bool(self.current), "chat-view")
         self.query_one("#brand", Static).update(
-            brand(self.palette, self.compact_layout, not self.current)
+            brand(
+                self.palette,
+                self.compact_layout,
+                not self.current,
+                self.client.server_version if self.ready else None,
+                self.size.width - 4,
+            )
         )
         self.query_one("#connection", Static).update(
             Text(

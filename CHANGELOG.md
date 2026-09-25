@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Show AtomX and connected Codex versions in the home header; read the backend
+  version from its handshake and report the current AtomX client version.
+
 ## 0.1.1 — 2026-09-25
 
 - Add F5 reply copying: choose a reply, then original Markdown, unwrapped plain

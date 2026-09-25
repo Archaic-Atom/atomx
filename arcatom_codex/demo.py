@@ -23,6 +23,7 @@ class DemoClient:
         self.tasks: list[asyncio.Task[None]] = []
         self.threads: dict[str, dict] = {}
         self.binary = "codex"
+        self.server_version: str | None = None
         self.remote_endpoint: str | None = None
         now = int(time.time())
         for tid, title, directory, age in [
