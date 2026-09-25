@@ -1,6 +1,9 @@
 """Aligned session columns and path scrolling. 对齐会话列与目录滚动。"""
-from pathlib import Path
+
+from __future__ import annotations
+
 import time
+from pathlib import Path
 
 from rich.cells import cell_len
 from rich.console import Group
@@ -11,11 +14,13 @@ from .i18n import tr
 from .state import Session, clean
 
 
-def section_heading(label: str, count: int, color: str, palette: Palette,
-                    first: bool):
+def section_heading(
+    label: str, count: int, color: str, palette: Palette, first: bool
+) -> Text | Group:
     """Separate groups visually without making headings selectable. 分区不可选中。"""
-    heading = Text.assemble((" " + label + "  ", "bold " + color),
-                            (str(count), palette.muted))
+    heading = Text.assemble(
+        (" " + label + "  ", "bold " + color), (str(count), palette.muted)
+    )
     return heading if first else Group(Text(""), heading)
 
 
@@ -23,7 +28,12 @@ def column_widths(width: int) -> tuple[int, int, int, int]:
     """Allocate fixed proportions, including CJK cells. 四列使用统一宽度比例。"""
     available = max(4, width - 3)
     edges = [available * percent // 100 for percent in (0, 26, 56, 82, 100)]
-    return tuple(edges[i + 1] - edges[i] for i in range(4))
+    return (
+        edges[1] - edges[0],
+        edges[2] - edges[1],
+        edges[3] - edges[2],
+        edges[4] - edges[3],
+    )
 
 
 def columns(values: list[Text], width: int) -> Text:
@@ -63,26 +73,65 @@ def directory_window(directory: str, width: int, step: int) -> str:
     return text.plain
 
 
-def session_row(session: Session, width: int, palette: Palette, deleting: bool,
-                path_step: int = 0) -> Text:
+def session_row(
+    session: Session,
+    width: int,
+    palette: Palette,
+    deleting: bool,
+    path_step: int = 0,
+) -> Text:
     """Show title, summary, directory and last activity. 固定四列展示会话。"""
-    color = {"waiting": palette.warning, "working": palette.success,
-             "history": palette.muted}[session.section]
-    marker = "*" if session.section == "waiting" else "●" if session.section == "working" else "·"
+    color = {
+        "waiting": palette.warning,
+        "working": palette.success,
+        "history": palette.muted,
+    }[session.section]
+    marker = (
+        "*"
+        if session.section == "waiting"
+        else "●"
+        if session.section == "working"
+        else "·"
+    )
     title = Text(marker + " ", color)
-    title.append(session.title, "bold " + palette.foreground if session.unread else palette.foreground)
-    preview = next((item.get("text", "") for item in reversed(list(session.items.values()))
-                    if item.get("type") == "agentMessage" and item.get("text")), "")
+    title.append(
+        session.title,
+        "bold " + palette.foreground if session.unread else palette.foreground,
+    )
+    preview = next(
+        (
+            item.get("text", "")
+            for item in reversed(list(session.items.values()))
+            if item.get("type") == "agentMessage" and item.get("text")
+        ),
+        "",
+    )
     if not preview:
         preview = session.phase or session.meta.get("preview", "")
     if preview == session.title:
         preview = ""
     updated = session.meta.get("updatedAt")
-    date = time.strftime("%m-%d %H:%M", time.localtime(updated)) if updated else "—"
-    summary = Text(tr("删除中…") if deleting else " ".join(clean(preview).split()), palette.muted)
-    directory = clean(session.meta.get("cwd", "")).replace("\n", " ").expandtabs(4)
+    date = (
+        time.strftime("%m-%d %H:%M", time.localtime(updated))
+        if updated
+        else "—"
+    )
+    summary = Text(
+        tr("删除中…") if deleting else " ".join(clean(preview).split()),
+        palette.muted,
+    )
+    directory = (
+        clean(session.meta.get("cwd", "")).replace("\n", " ").expandtabs(4)
+    )
     home = str(Path.home())
-    if directory == home or directory.startswith(home + "/") or directory.startswith(home + "\\"):
-        directory = "~" + directory[len(home):]
-    path = Text(directory_window(directory, column_widths(width)[2], path_step), palette.muted)
+    if (
+        directory == home
+        or directory.startswith(home + "/")
+        or directory.startswith(home + "\\")
+    ):
+        directory = "~" + directory[len(home) :]
+    path = Text(
+        directory_window(directory, column_widths(width)[2], path_step),
+        palette.muted,
+    )
     return columns([title, summary, path, Text(date, palette.muted)], width)

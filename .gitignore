@@ -3,6 +3,8 @@ __pycache__/
 *.egg-info/
 .DS_Store
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 artifacts/
 build/
 dist/

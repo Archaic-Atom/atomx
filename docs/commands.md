@@ -1,6 +1,6 @@
 # 命令覆盖与行为
 
-核对版本：本机 `codex-cli 0.156.1`。以该版本官方 `tui/src/slash_command.rs` 的命令枚举和别名为基准，并参考 [官方命令文档](https://learn.chatgpt.com/docs/developer-commands?surface=cli)。菜单共 72 项（包含别名与 Arcatom 补充入口），不是 72 个独立后端能力。
+核对版本：本机 `codex-cli 0.156.1`。以该版本官方 `tui/src/slash_command.rs` 的命令枚举和别名为基准，并参考 [官方命令文档](https://learn.chatgpt.com/docs/developer-commands?surface=cli)。菜单共 72 项（包含别名与 AtomX 补充入口），不是 72 个独立后端能力。
 
 ## 应用内处理（48 项）
 
@@ -31,21 +31,21 @@
 | mcp | 读取 MCP 服务和工具清单 |
 | debug-config / warnings / rollout | 配置来源、诊断信息和会话存储路径；配置认证字段遮盖 |
 | raw | 切换纯文本消息显示 |
-| theme / statusline / title | 设置代码高亮、底部字段顺序和终端标题，保存 Arcatom 显示偏好 |
-| archive / delete | 归档或永久删除当前会话，返回 Arcatom 列表 |
-| help / quit / exit | 查看帮助或退出 Arcatom |
+| theme / statusline / title | 设置代码高亮、底部字段顺序和终端标题，保存 AtomX 显示偏好 |
+| archive / delete | 归档或永久删除当前会话，返回 AtomX 列表 |
+| help / quit / exit | 查看帮助或退出 AtomX |
 
-原生 /archive、/delete 完成后退出官方 CLI；Arcatom 中完成后返回列表。这是会话工作台的有意差异。
+原生 /archive、/delete 完成后退出官方 CLI；AtomX 中完成后返回列表。这是会话工作台的有意差异。
 
 ## 官方界面处理（24 项）
 
 `/ide`、`/keymap`、`/vim`、`/experimental`、`/approve`、`/memories`、`/import`、`/hooks`、`/worktree`、`/app`、`/voice`、`/tui`、`/daemon`、`/pets`、`/pet`、`/apps`、`/plugins`、`/logout`、`/feedback`、`/setup-default-sandbox`、`/sandbox-add-read-dir`、`/test-approval`、`/debug-m-drop`、`/debug-m-update`。
 
-这些菜单项标为 `[原生]`。Arcatom 暂时让出终端，由官方 Codex 恢复同一会话并显示原生交互。macOS / Linux 检测到正常输入框后只填入命令，不自动按 Enter；你可检查后执行。Windows 直接接管控制台，请手动输入所选命令。输入 /quit 后回到 Arcatom，并重连后端加载变更。
+这些菜单项标为 `[原生]`。AtomX 暂时让出终端，由官方 Codex 恢复同一会话并显示原生交互。macOS / Linux 检测到正常输入框后只填入命令，不自动按 Enter；你可检查后执行。Windows 直接接管控制台，请手动输入所选命令。输入 /quit 后回到 AtomX，并重连后端加载变更。
 
-如果出现登录、目录信任等前置页面，先按官方流程完成，再输入所选命令。Arcatom 不代为批准这些步骤。正在执行的回合和后台终端需先结束，以免重连时丢失运行状态。临时分叉不能交给另一个进程恢复，应先使用普通 /fork。
+如果出现登录、目录信任等前置页面，先按官方流程完成，再输入所选命令。AtomX 不代为批准这些步骤。正在执行的回合和后台终端需先结束，以免重连时丢失运行状态。临时分叉不能交给另一个进程恢复，应先使用普通 /fork。
 
-原生编辑设置（如 /vim、/keymap、/tui）作用于官方界面，不会把 Textual 编辑器变成官方编辑器；宠物也显示在官方界面。Windows 专用命令、调试命令以及受实验开关限制的功能仍以官方可用性为准。Arcatom 没有模拟这些能力。
+原生编辑设置（如 /vim、/keymap、/tui）作用于官方界面，不会把 Textual 编辑器变成官方编辑器；宠物也显示在官方界面。Windows 专用命令、调试命令以及受实验开关限制的功能仍以官方可用性为准。AtomX 没有模拟这些能力。
 
 ## 验证范围
 

@@ -1,8 +1,8 @@
-# Arcatom Codex
+# AtomX
 
 [简体中文](README.zh-CN.md) · [MIT license](LICENSE)
 
-A keyboard-first terminal workspace for local Codex sessions, with a compact Archaic-Atom header, grouped sessions, live usage, subagents, image attachments and configurable colors. The interface defaults to English; choose **F2 → Language → 简体中文 → Save** to switch.
+A keyboard-first terminal workspace for local Codex sessions, with a compact robot header, grouped sessions, live usage, subagents, image attachments and configurable colors. The interface defaults to English; choose **F2 → Language → 简体中文 → Save** to switch.
 
 ## Install and run
 
@@ -11,34 +11,38 @@ Requires Python 3.11+ and an installed, signed-in Codex CLI. The protocol integr
 macOS / Linux:
 
 ```sh
+git clone https://github.com/Archaic-Atom/atomx.git
+cd atomx
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock
 .venv/bin/python -m pip install --no-deps .
 codex login
-.venv/bin/arcatom
+.venv/bin/atomx
 ```
 
 Windows PowerShell:
 
 ```powershell
+git clone https://github.com/Archaic-Atom/atomx.git
+cd atomx
 py -3 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.lock
 .venv\Scripts\python.exe -m pip install --no-deps .
 codex login
-.venv\Scripts\arcatom.exe
+.venv\Scripts\atomx.exe
 ```
 
-On macOS / Linux, `./arcatom` runs directly from this checkout. To install a user-local development launcher, run `python3 scripts/install_launcher.py`; it does not modify your shell configuration. On Windows, that script installs this package into the Python environment used to run it.
+On macOS / Linux, `./atomx` runs directly from this checkout. To install a user-local development launcher, run `python3 scripts/install_launcher.py`; it does not modify your shell configuration. On Windows, that script installs this package into the Python environment used to run it.
 
 ```sh
-arcatom --cwd /path/to/project
-arcatom --demo   # Offline fixtures; no model requests
-arcatom --check  # Read-only local connection check
+atomx --cwd /path/to/project
+atomx --demo   # Offline fixtures; no model requests
+atomx --check  # Read-only local connection check
 ```
 
 The default directory is the launch directory, configurable in Settings. Existing sessions keep their own working directories.
 
-Multiple updated Arcatom windows with the same local user, Codex installation and `CODEX_HOME` share one backend. Opening the same session subscribes to its live messages and task state; closing a window leaves the backend running. Unsent drafts remain local to each window. Restart all older Arcatom windows once after updating to join the shared service. Independently launched Codex servers are not synchronized by this connection.
+Multiple updated AtomX windows with the same local user, Codex installation and `CODEX_HOME` share one backend. Opening the same session subscribes to its live messages and task state; closing a window leaves the backend running. Unsent drafts remain local to each window. Restart all older AtomX windows once after updating to join the shared service. Independently launched Codex servers are not synchronized by this connection.
 
 macOS/Linux use a private local Unix socket; Windows uses the official `app-server daemon` and `proxy` transport and requires a complete Codex installation. Shared transport was tested locally on macOS; Windows/Linux still need platform testing.
 
@@ -118,6 +122,35 @@ The session activity panel shows real subagent threads, backend-reported backgro
 
 Use `.venv\Scripts\python.exe` on Windows. Offline tests cover state transitions, slash commands, approvals, keyboard navigation, preferences, clipboard adapters and image payloads without model calls. CI is configured for macOS, Linux and Windows on Python 3.11 and 3.14. Local end-to-end verification has been performed on macOS; Windows/Linux desktop clipboard and native console behavior still require checks on those platforms. POSIX-only PTY tests are skipped on Windows.
 
-The supplied Archaic-Atom black/white PNG logos are packaged with the app. The terminal header uses a sampled character version to avoid terminal-specific image protocols.
+The terminal header uses an ASCII robot with aligned borders, without requiring
+terminal-specific image protocols. The supplied Archaic-Atom black/white PNG logos
+remain packaged as team assets.
 
 [Contributing](CONTRIBUTING.md) · [Codex App Server](https://learn.chatgpt.com/docs/app-server) · [Textual](https://textual.textualize.io/)
+
+## AtomX compatibility and keyboard modes
+
+The command is `atomx`; the legacy `arcatom` command has been removed. Existing preferences,
+attachments and shared-backend socket paths keep their legacy `arcatom` names so
+an upgrade preserves settings and connects to the same service. The Python import
+namespace remains `arcatom_codex`; the distribution is `atomx-codex` (MIT).
+
+AtomX defaults to the terminal's existing keyboard protocol. This avoids enabling
+an enhanced mode merely by entering the app. `Ctrl+J` always inserts a newline.
+`Shift+Enter` works when the terminal already distinguishes it; terminals that
+send the same bytes as Enter require **F2 → Enhanced keyboard protocol → Save**
+and a restart, or `atomx --keyboard-mode enhanced`. Use
+`atomx --keyboard-mode standard` to diagnose protocol-related shortcut issues.
+The program cannot distinguish two physical keys that the terminal encodes
+identically.
+
+macOS Control+arrow and all platforms' Super+arrow / Control+Alt+arrow combinations
+are not workspace navigation bindings. AtomX does not register global hotkeys or
+modify terminal/OS shortcut preferences. A shortcut intercepted by a terminal
+profile cannot be forwarded back to the desktop by a terminal application.
+macOS Spaces switching must therefore also be verified in the actual terminal,
+including after leaving Settings or returning from native Codex.
+
+The terminal tab title now follows the current session and animates while working.
+It shows waiting, completed, stopped or failed states; `/title` chooses the app,
+session or model label. All popup notifications appear in the upper right.

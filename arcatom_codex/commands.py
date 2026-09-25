@@ -2,12 +2,18 @@
 
 菜单和分发共用一个索引；原生专用命令明确标注，避免空实现。
 """
+
+from __future__ import annotations
+
 from dataclasses import dataclass
+
 from .i18n import tr
 
 
 @dataclass(frozen=True)
 class Command:
+    """A menu entry and its native handoff flag. 命令菜单条目与原生接管标志。"""
+
     name: str
     description: str
     native: bool = False
@@ -33,7 +39,11 @@ COMMANDS = [
     Command("agents", "查看全部会话和代理"),
     Command("subagents", "进入当前会话的子代理"),
     Command("agent", "进入当前会话的子代理"),
-    Command("goal", "设置、查看或调整持续目标", argument="目标 / pause / resume / clear"),
+    Command(
+        "goal",
+        "设置、查看或调整持续目标",
+        argument="目标 / pause / resume / clear",
+    ),
     Command("side", "创建临时分支对话", argument="可选问题"),
     Command("btw", "创建临时分支对话", argument="可选问题"),
     Command("status", "查看模型、权限、用量和会话信息"),
@@ -61,9 +71,10 @@ COMMANDS = [
     Command("archive", "归档当前会话并返回列表"),
     Command("delete", "永久删除当前会话及其子会话"),
     Command("help", "查看全部命令和键盘操作"),
-    Command("quit", "退出 Arcatom"),
-    Command("exit", "退出 Arcatom"),
+    Command("quit", "退出 AtomX"),
+    Command("exit", "退出 AtomX"),
     # These workflows belong to the official TUI, not the app-server API.
+    # 这些工作流由官方终端界面提供，不能通过服务端接口替代。
     Command("ide", "选择 IDE 上下文", True, "可选提示"),
     Command("keymap", "配置原生 Codex 快捷键", True),
     Command("vim", "切换原生编辑器 Vim 模式", True),
@@ -97,5 +108,17 @@ def matches(text: str) -> list[Command]:
     if not text.startswith("/") or any(c.isspace() for c in text):
         return []
     query = text[1:].casefold()
-    return sorted((c for c in COMMANDS if query in c.name.casefold() or query in c.description or query in tr(c.description).casefold()),
-                  key=lambda c: (c.name != query, not c.name.startswith(query), COMMANDS.index(c)))
+    return sorted(
+        (
+            c
+            for c in COMMANDS
+            if query in c.name.casefold()
+            or query in c.description
+            or query in tr(c.description).casefold()
+        ),
+        key=lambda c: (
+            c.name != query,
+            not c.name.startswith(query),
+            COMMANDS.index(c),
+        ),
+    )

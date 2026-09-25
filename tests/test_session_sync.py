@@ -86,7 +86,7 @@ class SessionSyncTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(session.history_cursor)
             calls = len([m for m, _ in client.calls if m in ("thread/read", "thread/resume", "thread/items/list")])
             app.show_home()
-            with patch("arcatom_codex.ui.pretty", side_effect=AssertionError("cache lost")):
+            with patch("arcatom_codex.view_actions.pretty", side_effect=AssertionError("cache lost")):
                 await app.open_session("demo-login")
                 await pilot.pause(.1)
             self.assertEqual(calls, len([m for m, _ in client.calls if m in ("thread/read", "thread/resume", "thread/items/list")]))

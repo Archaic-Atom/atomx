@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from textual import events
 from textual.widgets import Input, OptionList, Select, Switch
 from textual.document._document import Selection
 
@@ -107,10 +108,20 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(app.current)
             self.assertTrue(scroll.has_focus)
             self.assertTrue(composer.read_only)
-            await pilot.press("up", "up")
+            # Queue a real input burst; pilot.press waits for rendering between keys.
+            # 按键到达间隔由事件时间决定，不能用测试渲染耗时模拟双击。
+            first = events.Key("up", None)
+            second = events.Key("up", None)
+            second.time = first.time + .1
+            app.post_message(first)
+            app.post_message(second)
             await pilot.pause(.1)
             self.assertEqual(scroll.scroll_y, 0)
-            await pilot.press("down", "down")
+            first = events.Key("down", None)
+            second = events.Key("down", None)
+            second.time = first.time + .1
+            app.post_message(first)
+            app.post_message(second)
             await pilot.pause(.1)
             self.assertTrue(scroll.is_vertical_scroll_end)
             self.assertTrue(scroll.has_focus)

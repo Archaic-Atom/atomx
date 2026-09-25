@@ -1,4 +1,4 @@
-# Arcatom Codex
+# AtomX
 
 一个按 Claude Code 式终端习惯设计的 Codex 客户端：中英文界面、可选配色、键盘导航、会话分区、用量明细，以及会话内部的子代理与进程面板。默认英文，在 F2 → Language 中选择简体中文并保存。使用本机 Codex；不是 Claude 客户端，也不需要安装 Claude。
 
@@ -9,32 +9,34 @@
 在项目根目录安装并启动：
 
 ```bash
+git clone https://github.com/Archaic-Atom/atomx.git
+cd atomx
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock
 codex login
-./arcatom
+./atomx
 ```
 
-也可安装用户级启动命令，之后从任意项目目录运行 `arcatom`：
+也可安装用户级启动命令，之后从任意项目目录运行 `atomx`：
 
 ```bash
 python3 scripts/install_launcher.py
-arcatom
+atomx
 ```
 
 默认使用启动时所在目录，新建会话时可修改。历史会话保留自己的工作目录。
 
 ```bash
-arcatom --cwd /path/to/project
-arcatom --demo   # 离线示例数据，不调用模型
-arcatom --check  # 验证本机连接，不发送模型请求
+atomx --cwd /path/to/project
+atomx --demo   # 离线示例数据，不调用模型
+atomx --check  # 验证本机连接，不发送模型请求
 ```
 
 也可安装为 Python 包，使用虚拟环境中的命令：
 
 ```bash
 .venv/bin/pip install .
-.venv/bin/arcatom --demo
+.venv/bin/atomx --demo
 ```
 
 ## 操作
@@ -51,9 +53,9 @@ arcatom --check  # 验证本机连接，不发送模型请求
 
 `/model` 打开后端实时模型列表，选择模型后再选择推理强度；确认成功才更新状态栏，从下一回合生效。仅修改当前会话，保留其他会话的模型。`/reasoning` 可单独调整强度。
 
-已按本机 Codex CLI **0.156.1** 接入其内置命令及别名，加上 Arcatom 入口共 **72 项**：48 项在应用内处理，24 项标为 **[原生]**。详细对应关系见 [命令覆盖说明](docs/commands.md)。
+已按本机 Codex CLI **0.156.1** 接入其内置命令及别名，加上 AtomX 入口共 **72 项**：48 项在应用内处理，24 项标为 **[原生]**。详细对应关系见 [命令覆盖说明](docs/commands.md)。
 
-带 `[原生]` 的命令在同一终端打开官方 Codex 界面，准备好命令后由你按 Enter 执行，使用 `/quit` 返回 Arcatom。首次进入目录时仍会出现官方登录或信任流程；完成后若命令尚未填入，输入所选命令即可。返回后重新连接后端以加载配置变化。进入前需完成或停止运行中的回合和后台终端。
+带 `[原生]` 的命令在同一终端打开官方 Codex 界面，准备好命令后由你按 Enter 执行，使用 `/quit` 返回 AtomX。首次进入目录时仍会出现官方登录或信任流程；完成后若命令尚未填入，输入所选命令即可。返回后重新连接后端以加载配置变化。进入前需完成或停止运行中的回合和后台终端。
 
 | 操作 | 按键 / 命令 |
 | --- | --- |
@@ -87,13 +89,13 @@ arcatom --check  # 验证本机连接，不发送模型请求
 | 退出 | `Ctrl+Q`、`/quit` |
 | 帮助 | `/help` |
 
-在会话运行中发送消息会引导当前回合（`turn/steer`）。返回列表不会终止任务，切换会话会保留草稿。多个新版 Arcatom 窗口在同一用户、Codex 安装和 `CODEX_HOME` 下共用本地服务，同一会话的消息与任务状态实时同步；退出一个窗口不会关闭共享服务。未发送草稿各窗口独立保存。更新后需要退出并重开所有旧版 Arcatom 窗口。macOS/Linux 使用私有 Unix socket；Windows 使用官方 daemon/proxy，需要完整 Codex 安装。共享连接已在 macOS 实测，Windows/Linux 尚需平台实测。
+在会话运行中发送消息会引导当前回合（`turn/steer`）。返回列表不会终止任务，切换会话会保留草稿。多个新版 AtomX 窗口在同一用户、Codex 安装和 `CODEX_HOME` 下共用本地服务，同一会话的消息与任务状态实时同步；退出一个窗口不会关闭共享服务。未发送草稿各窗口独立保存。更新后需要退出并重开所有旧版 AtomX 窗口。macOS/Linux 使用私有 Unix socket；Windows 使用官方 daemon/proxy，需要完整 Codex 安装。共享连接已在 macOS 实测，Windows/Linux 尚需平台实测。
 
 第一次 `Ctrl+X` 只提示，3 秒内再次按下才调用 Codex 的永久删除接口，删除选中历史及其子会话；它也会从其他 Codex 客户端的历史中消失。已知正在运行的主会话需先停止；删除失败会保留条目。聊天输入框中的 `Ctrl+X` 仍用于剪切。
 
 按 Enter 后立即回显消息并显示等待动画、阶段和经过时间，覆盖恢复历史、等待模型、调用工具和流式回复。完成或断线后停止动画。发送失败保留草稿，不自动重复发送。动画是本客户端按 Codex 事件绘制的等待指示。
 
-支持中文、粘贴、多行输入、Markdown 与代码显示。推荐终端尺寸至少 80×24；按 `Tab` 移动焦点。`Ctrl+C` 只复制，不停止任务。任务运行时 `Esc` 停止任务并保留焦点、草稿；空闲时 `Esc` 退出编辑，再按一次回首页。设置和其他弹窗优先处理 `Esc`。主要导航为 Esc 退出编辑后用方向键浏览；PageUp / PageDown 也可选用。遵守 `NO_COLOR` 环境变量；若你的环境设置了它但希望显示暖色，可用 `env -u NO_COLOR arcatom`。
+支持中文、粘贴、多行输入、Markdown 与代码显示。推荐终端尺寸至少 80×24；按 `Tab` 移动焦点。`Ctrl+C` 只复制，不停止任务。任务运行时 `Esc` 停止任务并保留焦点、草稿；空闲时 `Esc` 退出编辑，再按一次回首页。设置和其他弹窗优先处理 `Esc`。主要导航为 Esc 退出编辑后用方向键浏览；PageUp / PageDown 也可选用。遵守 `NO_COLOR` 环境变量；若你的环境设置了它但希望显示暖色，可用 `env -u NO_COLOR atomx`。
 
 ## 会话内的子代理与进程
 
@@ -103,7 +105,7 @@ arcatom --check  # 验证本机连接，不发送模型请求
 - 后台进程：显示 Codex 报告的命令、进程 ID。回车查看收到的输出流。
 - 普通命令：保留状态、日志和退出码，面板显示最近 30 条。
 
-后端每四秒刷新当前会话的代理与后台进程。普通消息和命令输出通过事件流实时更新。 会话正文中的命令只显示一行状态和命令首行，多行脚本及超长命令默认收起；按 `Ctrl+T` 选择命令并回车，查看完整脚本和输出。外部 Codex 客户端正在执行的任务可能属于另一个服务进程，不能保证同步其运行状态或控制其进程；历史记录仍可读取。新版 Arcatom 窗口之间共享事件；独立启动的其他 Codex 服务不在此同步范围内。
+后端每四秒刷新当前会话的代理与后台进程。普通消息和命令输出通过事件流实时更新。 会话正文中的命令只显示一行状态和命令首行，多行脚本及超长命令默认收起；按 `Ctrl+T` 选择命令并回车，查看完整脚本和输出。外部 Codex 客户端正在执行的任务可能属于另一个服务进程，不能保证同步其运行状态或控制其进程；历史记录仍可读取。新版 AtomX 窗口之间共享事件；独立启动的其他 Codex 服务不在此同步范围内。
 
 ## 用量数据
 
@@ -168,11 +170,13 @@ arcatom --check  # 验证本机连接，不发送模型请求
 Windows PowerShell 安装：
 
 ```powershell
+git clone https://github.com/Archaic-Atom/atomx.git
+cd atomx
 py -3 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.lock
 .venv\Scripts\python.exe -m pip install --no-deps .
 codex login
-.venv\Scripts\arcatom.exe
+.venv\Scripts\atomx.exe
 ```
 
 macOS 使用系统剪贴板；Windows 使用 PowerShell 和 Pillow；Linux 剪贴板需要桌面会话及 `wl-clipboard`（Wayland）或 `xclip`（X11）。终端如果截获 Ctrl+V，可用 F4 路径添加图片。SSH 等没有桌面剪贴板的环境仍可用 F4；文字复制也尝试终端 OSC 52。
@@ -181,4 +185,25 @@ macOS 使用系统剪贴板；Windows 使用 PowerShell 和 Pillow；Linux 剪�
 
 ## 许可证与 Logo
 
-[MIT](LICENSE)。Logo 来自 Archaic-Atom 提供的黑色 / 白色 PNG；普通终端使用由原图采样的字符版本，不依赖专属图片协议。
+[MIT](LICENSE)。终端标题使用边框对齐的 ASCII 机器人，不依赖专属图片协议。
+Archaic-Atom 提供的黑色 / 白色 PNG 作为团队素材保留在安装包中。
+
+## AtomX 兼容与键盘模式
+
+启动命令为 `atomx`，旧命令 `arcatom` 已移除。偏好、附件和共享后端套接字保留
+原来的 `arcatom` 路径，避免丢失设置或把多个窗口分到不同服务。
+内部 Python 包名仍为 `arcatom_codex`，发行包名为 `atomx-codex`，许可证为 MIT。
+
+默认沿用终端的键盘协议，不会因进入应用而主动启用增强模式。`Ctrl+J` 始终换行。
+终端本身能区分时，`Shift+Enter` 也可以换行；否则在 **F2 → 增强键盘协议 → 保存**
+后重启，或运行 `atomx --keyboard-mode enhanced`。排查快捷键问题时可运行
+`atomx --keyboard-mode standard`。若终端把 Shift+Enter 与 Enter 编码成相同字节，
+应用本身无法区分这两个按键。
+
+macOS 的 Ctrl+方向键，以及各平台的 Super+方向键、Ctrl+Alt+方向键，不用于应用导航。
+程序不注册系统热键、不修改终端或系统的快捷键设置。终端配置已截获的系统组合键，
+应用无法再转交桌面。实际的 macOS 全屏切换仍需在终端中复测，包括关闭设置、
+从原生 Codex 返回之后的情况。
+
+终端标签标题随当前会话更新，工作中显示动画，并区分等待、完成、停止和失败。
+`/title` 可选择应用名、会话名或模型名称。所有浮动通知统一显示在右上角。

@@ -1,0 +1,7 @@
+-r requirements.lock
+ruff==0.15.7
+mypy==1.19.1
+mypy_extensions==1.1.0
+pathspec==1.1.1
+librt==0.15.0
+setuptools==80.9.0

@@ -1,6 +1,6 @@
 Screen { background: $arc-background; color: $arc-foreground; }
-ArcatomApp { background: $arc-background; }
-#brand { height: 3; padding: 0 2; margin-top: 1; }
+AtomXApp { background: $arc-background; }
+#brand { height: 5; padding: 0 2; margin-top: 1; }
 #connection { height: 1; padding: 0 2; color: $arc-muted; }
 #view { height: 1fr; padding: 0 2; }
 .muted { color: $arc-muted; }
@@ -40,6 +40,7 @@ ModalScreen { align: center middle; background: $arc-background; }
 Button { background: $arc-background; color: $arc-foreground; border: none; margin-right: 2; }
 Button:focus { text-style: bold underline; tint: transparent; }
 Button:hover { background: $arc-background; }
+ToastRack { dock: top; align: right top; margin: 0 1 0 0; max-height: 50%; }
 Toast { background: $arc-background; color: $arc-foreground; }
 Composer .text-area--cursor-line { background: transparent; }
 #answers { height: 1fr; }

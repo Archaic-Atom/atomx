@@ -1,1 +1,2 @@
-textual==6.12.0
+# Install the same complete dependency set as CI.
+-r requirements.lock

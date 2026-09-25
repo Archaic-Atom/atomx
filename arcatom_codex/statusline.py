@@ -2,21 +2,27 @@
 
 from __future__ import annotations
 
-from .i18n import tr
 import math
 import re
 import time
 
 from rich.text import Text
 
-from .state import Session, clean
 from .appearance import PALETTES, Palette
+from .i18n import tr
+from .state import Session, clean
 
 
 def remaining_color(percent: float, palette: Palette | None = None) -> str:
     """Color the remaining budget. 按剩余比例显示绿、黄、红。"""
     palette = palette or PALETTES["warm"]
-    return palette.success if percent >= 50 else palette.warning if percent >= 20 else palette.error
+    return (
+        palette.success
+        if percent >= 50
+        else palette.warning
+        if percent >= 20
+        else palette.error
+    )
 
 
 def token_label(value: int | None) -> str:
@@ -30,9 +36,14 @@ def token_label(value: int | None) -> str:
     return str(value)
 
 
-def build_status(session: Session | None, limits: dict, width: int,
-                 now: float | None = None, fields: list[str] | None = None,
-                 palette: Palette | None = None) -> Text:
+def build_status(
+    session: Session | None,
+    limits: dict,
+    width: int,
+    now: float | None = None,
+    fields: list[str] | None = None,
+    palette: Palette | None = None,
+) -> Text:
     """Build ordered status segments without inventing unavailable quotas.
 
     构造常驻状态栏；缺失的上下文和额度字段不占位。
@@ -48,16 +59,39 @@ def build_status(session: Session | None, limits: dict, width: int,
     """
     now = time.time() if now is None else now
     palette = palette or PALETTES["warm"]
-    parts = [("time", Text(time.strftime("%H:%M:%S", time.localtime(now)), palette.muted))]
-    parts.append(("tokens", Text("tok:" + token_label(session.total if session else None), palette.warning)))
+    parts = [
+        (
+            "time",
+            Text(time.strftime("%H:%M:%S", time.localtime(now)), palette.muted),
+        )
+    ]
+    parts.append(
+        (
+            "tokens",
+            Text(
+                "tok:" + token_label(session.total if session else None),
+                palette.warning,
+            ),
+        )
+    )
     if session:
         context_size = session.usage.get("modelContextWindow")
         # Context is the latest request, not the accumulated conversation bill.
         # 上下文使用最近一轮的计数，不能用累计计费 Token 代替。
         used = session.usage.get("last", {}).get("totalTokens")
         if context_size and isinstance(used, (int, float)):
-            remaining = max(0, min(100, 100 * (context_size - used) / context_size))
-            parts.append(("context", Text(f"ctx:{remaining:.0f}%", remaining_color(remaining, palette))))
+            remaining = max(
+                0, min(100, 100 * (context_size - used) / context_size)
+            )
+            parts.append(
+                (
+                    "context",
+                    Text(
+                        f"ctx:{remaining:.0f}%",
+                        remaining_color(remaining, palette),
+                    ),
+                )
+            )
     buckets = limits.get("rateLimitsByLimitId") or {}
     snapshot = buckets.get("codex") or limits.get("rateLimits") or {}
     for key in ("primary", "secondary"):
@@ -66,15 +100,22 @@ def build_status(session: Session | None, limits: dict, width: int,
         minutes = window.get("windowDurationMins")
         if not isinstance(used, (int, float)) or not minutes:
             continue
-        label = (f"{minutes // 1440}d" if minutes % 1440 == 0 else
-                 f"{minutes // 60}h" if minutes % 60 == 0 else f"{minutes}m")
+        label = (
+            f"{minutes // 1440}d"
+            if minutes % 1440 == 0
+            else f"{minutes // 60}h"
+            if minutes % 60 == 0
+            else f"{minutes}m"
+        )
         remaining = max(0, min(100, 100 - used))
-        part = Text(f"{label}:{remaining:.0f}%", remaining_color(remaining, palette))
+        part = Text(
+            f"{label}:{remaining:.0f}%", remaining_color(remaining, palette)
+        )
         resets_at = window.get("resetsAt")
         if isinstance(resets_at, (int, float)):
             seconds = max(0, int(resets_at - now))
             if not seconds:
-                countdown = tr('待刷新')
+                countdown = tr("待刷新")
             elif minutes >= 1440:
                 countdown = f"{seconds // 86400}d {(seconds % 86400) // 3600}h"
             else:
@@ -82,11 +123,22 @@ def build_status(session: Session | None, limits: dict, width: int,
             part.append(" " + countdown, "dim")
         parts.append(("limits", part))
     if session and session.meta.get("model"):
-        name = re.sub(r"\s+\([^)]*context[^)]*\)$", "", clean(session.meta["model"]))
+        name = re.sub(
+            r"\s+\([^)]*context[^)]*\)$", "", clean(session.meta["model"])
+        )
         parts.append(("model", Text(name, palette.accent)))
     result = Text()
     row_width = 0
-    ordered = [part for field in (fields if fields is not None else ["time", "tokens", "context", "limits", "model"]) for name, part in parts if name == field]
+    ordered = [
+        part
+        for field in (
+            fields
+            if fields is not None
+            else ["time", "tokens", "context", "limits", "model"]
+        )
+        for name, part in parts
+        if name == field
+    ]
     for part in ordered:
         if row_width and row_width + 3 + part.cell_len > max(width, 20):
             result.append("\n")
