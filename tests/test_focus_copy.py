@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 from textual.content import Content
 from textual._xterm_parser import XTermParser
+from textual.geometry import Offset
+from textual.selection import Selection
 from textual.widgets import Select, Switch
 
 from arcatom_codex.demo import DemoClient
@@ -159,3 +161,69 @@ class FocusCopyTests(unittest.IsolatedAsyncioTestCase):
                 self.writer.assert_called_with("synthetic copy check")
                 self.assertIn("unavailable", notify.call_args.args[0])
                 self.assertEqual(notify.call_args.kwargs["severity"], "warning")
+
+    async def test_copy_removes_fill_but_keeps_code_and_table_spacing(self) -> None:
+        """Remove display padding across widths. 不同宽度下排除显示边距。"""
+        app = self.app()
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause(.2)
+            await pilot.press("ctrl+l", "enter")
+            await pilot.pause(.2)
+            session = app.store.get(app.current)
+            session.items.clear()
+            session.ingest({"id": "copy-padding", "type": "agentMessage", "text":
+                "你好  hello\n\nSecond paragraph\n\n"
+                "```python\ndef greet():\n    value = 'a  b'\n    return value\n```\n\n"
+                "| Name | Value |\n|---|---|\n| foo | bar |"})
+            app.paint(force=True)
+            await pilot.pause(.2)
+            transcript = app.query_one("#transcript")
+            for width in (100, 60):
+                await pilot.resize_terminal(width, 40)
+                await pilot.pause(.2)
+                rendered = transcript.render().plain
+                self.assertTrue(any(line.endswith("   ") for line in rendered.splitlines()))
+                app.screen.selections = {transcript: Selection(None, None)}
+                await pilot.press("ctrl+c")
+                await pilot.pause(.1)
+                copied = self.writer.call_args.args[0]
+                self.assertTrue(all(line == line.rstrip(" \t") for line in copied.splitlines()))
+                self.assertIn("你好  hello\n\nSecond paragraph", copied)
+                self.assertIn("def greet():\n    value = 'a  b'\n    return value", copied)
+                self.assertIn("Name  Value", copied)
+                # Copy only source indentation, without trimming it.
+                # 仅选中代码原始缩进时，四格空格仍完整保留。
+                row = next(i for i, line in enumerate(rendered.splitlines()) if "value =" in line)
+                selected = transcript.get_selection(Selection(Offset(1, row), Offset(5, row)))
+                self.assertEqual(selected[0], "    ")
+
+    async def test_multiline_mouse_copy_and_intentional_draft_spaces(self) -> None:
+        """Exercise mouse selection and untouched drafts. 验证鼠标选区及草稿空格。"""
+        app = self.app()
+        async with app.run_test(size=(100, 36)) as pilot:
+            await pilot.pause(.2)
+            await pilot.press("ctrl+l", "enter")
+            await pilot.pause(.2)
+            session = app.store.get(app.current)
+            session.items.clear()
+            session.ingest({"id": "copy-lines", "type": "agentMessage", "text":
+                "First paragraph\n\nSecond paragraph"})
+            app.paint(force=True)
+            await pilot.pause(.2)
+            transcript = app.query_one("#transcript")
+            await pilot.mouse_down(transcript, offset=(0, 1))
+            await pilot.hover(transcript, offset=(70, 3))
+            await pilot.mouse_up(transcript, offset=(70, 3))
+            expected = "First paragraph\n\nSecond paragraph"
+            self.assertEqual(app.screen.get_selected_text(), expected)
+            await pilot.press("ctrl+c")
+            await pilot.pause(.1)
+            self.writer.assert_called_with(expected)
+            app.screen.clear_selection()
+            composer = app.query_one(Composer)
+            composer.load_text("  draft  ")
+            app.focus_composer(edit=True)
+            composer.action_select_all()
+            await pilot.press("ctrl+c")
+            await pilot.pause(.1)
+            self.writer.assert_called_with("  draft  ")

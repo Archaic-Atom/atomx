@@ -11,6 +11,7 @@ from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.content import Content
 from textual.message import Message
+from textual.selection import Selection
 from textual.widget import Widget
 from textual.widgets import Button, Input, OptionList, Static, TextArea
 
@@ -330,6 +331,7 @@ class SelectableTranscript(WorkspaceAccess, Static):
         key = (id(self.content), width)
         if getattr(self, "_selection_cache_key", None) != key:
             text = Text()
+            ignored: set[int] = set()
             for segment in self.workspace.console.render(
                 cast(RenderableType, self.content),
                 self.workspace.console.options.update(
@@ -337,12 +339,43 @@ class SelectableTranscript(WorkspaceAccess, Static):
                 ),
             ):
                 if not segment.control:
+                    if segment.style and segment.style.meta.get(
+                        "atomx_copy_padding"
+                    ):
+                        ignored.update(
+                            range(len(text), len(text) + len(segment.text))
+                        )
                     text.append(segment.text, segment.style)
             self._selection_content = Content.from_rich_text(
                 text, console=self.workspace.console
             )
             self._selection_cache_key = key
+            self._copy_ignored = ignored
         return self._selection_content
+
+    def get_selection(self, selection: Selection) -> tuple[str, str] | None:
+        """Copy selected text without terminal fill or decorative code margins.
+
+        选区坐标仍对应屏幕文字，只在复制时去掉行尾补齐及已标记的代码边距。
+        保留正文换行、代码缩进和表格内部用于对齐的空格。
+        """
+        content = self.render()
+        lines = []
+        offset = 0
+        for y, line in enumerate(content.plain.splitlines()):
+            span = selection.get_span(y)
+            if span is not None:
+                start, end = span
+                end = len(line) if end == -1 else min(end, len(line))
+                end = min(end, len(line.rstrip(" \t")))
+                selected = "".join(
+                    line[x]
+                    for x in range(max(0, start), end)
+                    if offset + x not in self._copy_ignored
+                )
+                lines.append(selected)
+            offset += len(line) + 1
+        return "\n".join(lines), "\n"
 
     def on_resize(self) -> None:
         """Schedule layout-dependent refresh after dimensions settle.

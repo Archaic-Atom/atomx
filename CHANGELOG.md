@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.1 — 2026-09-25
+
+- Add F5 reply copying: choose a reply, then original Markdown, unwrapped plain
+  text, or an individual code block with its source indentation.
+- Add F7 / click image gallery with previous/next, zoom, fit, open original and
+  Escape back to the conversation without losing the draft or stopping work.
+- Add a team-maintained Homebrew tap for installation and upgrades.
+
+- Copy selected answers without terminal line-fill spaces or decorative code
+  margins, preserving source indentation, paragraph breaks and table alignment.
+
+- Display conversation images inline, including local attachments, Markdown image
+  references, generated/viewed images and structured tool results. Decode and
+  cache previews asynchronously, preserve selectable surrounding text, and use
+  native terminal graphics with a colored half-cell fallback.
+
 ## 0.1.0 — 2026-09-25
 
 First public release of AtomX.

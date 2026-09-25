@@ -2,6 +2,17 @@
 
 一个按 Claude Code 式终端习惯设计的 Codex 客户端：中英文界面、可选配色、键盘导航、会话分区、用量明细，以及会话内部的子代理与进程面板。默认英文，在 F2 → Language 中选择简体中文并保存。使用本机 Codex；不是 Claude 客户端，也不需要安装 Claude。
 
+## Homebrew 安装
+
+```sh
+brew tap Archaic-Atom/tap
+brew trust --formula Archaic-Atom/tap/atomx  # Homebrew 7+
+brew install Archaic-Atom/tap/atomx
+```
+
+这是团队维护的 tap。另行安装并登录 Codex CLI 后，用 `atomx` 启动。
+更新使用 `brew update && brew upgrade atomx`；旧版 Homebrew 没有 `trust` 命令时可跳过该行。
+
 ## 启动
 
 需要 Python 3.11+ 和已经登录的 Codex CLI。当前验证版本为 `codex-cli 0.156.1`。支持 macOS、Linux 和 Windows 的平台适配；本地实测为 macOS，CI 配置包含三个平台。Windows 原生接管直接继承控制台，需要手动输入所选斜杠命令。
@@ -179,7 +190,15 @@ codex login
 .venv\Scripts\atomx.exe
 ```
 
+复制会话选区时会去掉终端补齐的行尾空格和代码块显示边距，保留代码缩进、段落换行及表格内部对齐；输入草稿和原始回复复制不做此清理。
+
 macOS 使用系统剪贴板；Windows 使用 PowerShell 和 Pillow；Linux 剪贴板需要桌面会话及 `wl-clipboard`（Wayland）或 `xclip`（X11）。终端如果截获 Ctrl+V，可用 F4 路径添加图片。SSH 等没有桌面剪贴板的环境仍可用 F4；文字复制也尝试终端 OSC 52。
+
+会话中的图片现在直接显示在对应消息下方，支持本地附件、Markdown 图片引用、
+Codex 图片查看 / 生成结果以及工具返回的图片内容。终端支持时使用 Sixel / Kitty
+图像协议，否则显示彩色字符缩略图。图片在后台解码，滚动与窗口缩放时保持比例；
+图片缺失、只有远程 URL 或不透明文件 ID 时显示不可预览说明，不影响继续对话。
+程序不会自动下载远程图片。
 
 图片先显示为待发送附件，按 Enter 才提交。切换会话保留各自附件，发送失败保留附件和草稿。副本保存于 `~/.cache/arcatom/attachments/`，便于历史引用；F8 只移除待发送引用，不会删除已缓存文件，可在不再需要历史图片时手动清理该目录。
 
@@ -207,3 +226,11 @@ macOS 的 Ctrl+方向键，以及各平台的 Super+方向键、Ctrl+Alt+方向�
 
 终端标签标题随当前会话更新，工作中显示动画，并区分等待、完成、停止和失败。
 `/title` 可选择应用名、会话名或模型名称。所有浮动通知统一显示在右上角。
+
+## 回答复制与图片查看
+
+按 **F5** 选择一条回答，再选择原始 Markdown、纯文本全文或单独的代码块。
+纯文本全文不受终端宽度影响；代码块保留原始缩进。
+
+按 **F7** 或点击会话图片进入大图查看器：←/→ 切换，+/- 缩放，0 适应窗口，
+O 用系统查看器打开原图，Esc 返回原会话，保留草稿。

@@ -4,6 +4,18 @@
 
 A keyboard-first terminal workspace for local Codex sessions, with a compact robot header, grouped sessions, live usage, subagents, image attachments and configurable colors. The interface defaults to English; choose **F2 → Language → 简体中文 → Save** to switch.
 
+## Install with Homebrew
+
+```sh
+brew tap Archaic-Atom/tap
+brew trust --formula Archaic-Atom/tap/atomx  # Homebrew 7+
+brew install Archaic-Atom/tap/atomx
+```
+
+Install and sign in to Codex CLI separately, then run `atomx`. Update with
+`brew update && brew upgrade atomx`. This is our team-maintained tap.
+Older Homebrew versions without `brew trust` can omit that line.
+
 ## Install and run
 
 Requires Python 3.11+ and an installed, signed-in Codex CLI. The protocol integration is verified against `codex-cli 0.156.1`.
@@ -64,6 +76,8 @@ Long conversations open immediately and load their newest 40 items in the backgr
 | Return directly to editing | Start typing anywhere in the conversation, or `Ctrl+L` / `F6`; the first character is preserved |
 | Send / newline | `Enter` / `Ctrl+J` (also `Shift+Enter` in supporting terminals) |
 | Copy selected text | Select, then `Ctrl+C`, `F3` / `Ctrl+Shift+C`; forwarded `Cmd+C` also works |
+| Choose a reply and copy Markdown, plain text or a code block | `F5` |
+| Browse / enlarge conversation images | `F7`, or click an inline image; `←/→` switches, `+/-` zooms, `0` fits, `O` opens the original, `Esc` returns |
 | Copy latest reply when nothing is selected | `F3`, `Ctrl+Shift+C` or `/copy` |
 | Paste text or image | `Ctrl+V` |
 | Attach image file / remove pending image | `F4` / `F8` |
@@ -97,7 +111,20 @@ Usage stays in the status bar: time, cumulative session tokens, remaining contex
 
 Fonts and font size are controlled by your terminal. For iTerm2’s intercepted Cmd+C shortcut, see [terminal keyboard setup](docs/terminal.md).
 
+Copying selected conversation text removes terminal line-fill spaces and code
+block display margins while preserving code indentation, paragraph breaks and
+internal table spacing. Draft selection and copying raw replies remain unchanged.
+
 Text copy works in both real and demo sessions, uses the system clipboard first, and sends OSC 52 only as a fallback. Success is shown after the system clipboard accepts the text; an unavailable system clipboard produces a terminal-fallback notice. macOS uses its built-in clipboard tools; Windows uses PowerShell; Linux needs `wl-clipboard` for Wayland or `xclip` for X11. Image clipboard access uses Pillow and the available desktop clipboard. Headless/SSH environments may have no desktop clipboard. Use **F4** to attach a readable image file when clipboard access is unavailable or the terminal intercepts Ctrl+V.
+
+Conversation images now appear inline beneath their messages. AtomX reads local
+attachments, Markdown image references, Codex image viewing/generation items and
+image content returned by tools. [textual-image](https://github.com/lnqs/textual-image)
+selects native Sixel/Kitty graphics when available, with colored half-cell previews
+as a fallback. Decoding runs in the background; previews keep their aspect ratio
+when scrolling or resizing. Missing files, remote-only URLs and opaque file IDs
+show an unavailable label instead of breaking the conversation. AtomX does not
+automatically download remote image URLs.
 
 Pasted images appear as pending attachments and are sent only after Enter. Attachments belong to their session, survive switching sessions, and are restored after a send failure. Image snapshots remain in `~/.cache/arcatom/attachments/` so Codex history can reference them. F8 removes a pending reference, not the cached file; remove that cache manually when you no longer need the historical images. Support for interpreting images depends on the selected model.
 

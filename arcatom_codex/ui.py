@@ -40,6 +40,7 @@ from .dialogs import Question as Question
 from .history_actions import HistoryActions
 from .home_actions import HomeActions
 from .i18n import tr
+from .image_widgets import MediaTranscript
 from .keyboard import ArrowGesture, keyboard_driver, reserved_navigation
 from .navigation import Navigation
 from .personal import bridge_instructions, discover_skills
@@ -48,6 +49,7 @@ from .preferences import read_preferences
 from .rendering import MessageMarkdown as MessageMarkdown
 from .rendering import command_summary as command_summary
 from .rendering import pretty as pretty
+from .response_actions import ResponseActions
 from .rpc import CodexClient, RpcError
 from .settings import Settings
 from .state import Store, clean, number, rollout_usage
@@ -63,6 +65,7 @@ from .window_title import build_title, title_driver, write_title
 
 
 class AtomXApp(
+    ResponseActions,
     CommandActions,
     Navigation,
     HomeActions,
@@ -93,6 +96,8 @@ class AtomXApp(
             "ctrl+v", "paste_clipboard", tr("粘贴文字 / 图片"), priority=True
         ),
         Binding("f4", "attach_image", tr("添加图片"), priority=True),
+        Binding("f5", "copy_response", tr("复制回答"), priority=True),
+        Binding("f7", "view_images", tr("查看图片"), priority=True),
         Binding("f8", "attachments", tr("管理图片"), priority=True),
         Binding("ctrl+u", "usage", tr("用量"), priority=True),
         Binding("ctrl+t", "activity", tr("代理与进程"), priority=True),
@@ -483,6 +488,7 @@ class AtomXApp(
                     yield SelectableTranscript(
                         "", id="transcript", markup=False
                     )
+                    yield MediaTranscript(id="media-transcript")
                 yield Static("", id="waiting", markup=False)
                 yield Static("", id="activity-summary", markup=False)
                 yield OptionList(id="activities")
@@ -512,6 +518,7 @@ class AtomXApp(
         self.query_one("#slash-commands").display = False
         self.query_one("#home-commands").display = False
         self.query_one("#attachments").display = False
+        self.query_one("#media-transcript").display = False
         self.query_one("#older-history").display = False
         self.query_one("#sessions").focus()
         self.set_interval(0.15, self.paint)

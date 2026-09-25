@@ -26,7 +26,7 @@ class Navigation(AppActions):
             hint = tr("Esc 停止任务 · Ctrl+C 复制 · Ctrl+T 代理与进程")
         elif not composer.read_only:
             hint = tr(
-                "编辑 · Esc 浏览 · ↑↓ 历史输入 · Ctrl+J 换行 · F3 复制 · F2 设置"
+                "编辑 · Esc 浏览 · Ctrl+J 换行 · F3 复制 · F5 回答 · F7 图片 · F2 设置"
             )
         elif composer.has_focus:
             hint = tr(

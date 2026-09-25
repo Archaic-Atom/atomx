@@ -18,6 +18,8 @@ from textual.widgets.option_list import Option
 
 from .access import AppActions
 from .i18n import tr
+from .image_widgets import MediaBlock, MediaTranscript
+from .images import message_images
 from .rendering import command_summary, pretty
 from .state import clean, number
 from .statusline import build_status
@@ -128,6 +130,8 @@ class ViewActions(AppActions):
         # Cache parsed Markdown; don't reparse the whole history for each delta.
         # 缓存未变化的 Markdown，避免每个流式片段重新解析完整历史。
         blocks = []
+        media_blocks = []
+        has_images = False
         signatures = []
         for item in list(session.items.values())[-session.visible_items :]:
             display_fields = (
@@ -140,6 +144,12 @@ class ViewActions(AppActions):
                 "server",
                 "tool",
                 "query",
+                "path",
+                "savedPath",
+                "result",
+                "output",
+                "contentItems",
+                "failure",
             )
             if item.get("type") not in {
                 "userMessage",
@@ -150,6 +160,10 @@ class ViewActions(AppActions):
                 "mcpToolCall",
                 "webSearch",
                 "notice",
+                "imageView",
+                "imageGeneration",
+                "functionCallOutput",
+                "dynamicToolCall",
             }:
                 continue
             visible = {k: item[k] for k in display_fields if k in item}
@@ -165,11 +179,23 @@ class ViewActions(AppActions):
                         item, self.workspace.code_theme, self.workspace.palette
                     )
                 )
-                cached = (signature, rendered)
+                images = message_images(
+                    item, session.meta.get("cwd") or self.workspace.cwd
+                )
+                cached = (signature, rendered, images)
                 self.workspace.transcript_cache[cache_key] = cached
             if cached[1] is not None:
                 signatures.append((item["id"], signature))
                 blocks.append(cached[1])
+                media_blocks.append(
+                    MediaBlock(cache_key, str(id(cached[1])), cached[1])
+                )
+            if cached[2]:
+                has_images = True
+                signatures.append((item["id"] + ":images", signature))
+                for image in cached[2]:
+                    key = cache_key + ":image:" + image.key
+                    media_blocks.append(MediaBlock(key, image.key, image))
         if not blocks:
             message = (
                 tr("正在加载最近的会话记录…")
@@ -196,9 +222,17 @@ class ViewActions(AppActions):
         )
         if transcript_signature != self.workspace.transcript_signature:
             self.workspace.transcript_signature = transcript_signature
-            self.workspace.query_one("#transcript", Static).update(
-                Group(*blocks)
+            text_view = self.workspace.query_one("#transcript", Static)
+            media_view = self.workspace.query_one(
+                "#media-transcript", MediaTranscript
             )
+            text_view.display = not has_images
+            media_view.display = has_images
+            media_view.update_blocks(
+                media_blocks if has_images else [], follow=follow
+            )
+            if not has_images:
+                text_view.update(Group(*blocks))
             if follow:
                 scroll.scroll_end(animate=False, immediate=True)
         commands = [

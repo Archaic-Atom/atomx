@@ -4,9 +4,25 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 from .i18n import tr
+
+
+def open_image_file(path: Path) -> None:
+    """Open an explicit local image using the system viewer, without a shell.
+
+    用户主动打开本地图片时调用系统查看器，参数不经 shell。
+    """
+    if sys.platform == "win32":
+        getattr(os, "startfile")(str(path))
+    else:
+        command = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.run(
+            [command, str(path)], check=True, capture_output=True, timeout=15
+        )
 
 
 def executable_argv(binary: str, *, windows: bool | None = None) -> list[str]:
