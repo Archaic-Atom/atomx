@@ -4,6 +4,8 @@
 
 - Ignore delayed session selection events after the interface closes, avoiding
   an intermittent shutdown exception.
+- Stop timer and queued view refreshes as shutdown begins, before child widgets
+  are removed, preventing partial-unmount status bar errors.
 
 - Show AtomX and connected Codex versions in the home header; read the backend
   version from its handshake and report the current AtomX client version.
