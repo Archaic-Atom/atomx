@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+from urllib.request import url2pathname
 
 from markdown_it import MarkdownIt
 from PIL import Image, ImageOps
@@ -167,7 +168,9 @@ def load_image(source: ImageSource) -> Image.Image:
         if parsed.scheme == "file" and parsed.netloc not in ("", "localhost"):
             raise ValueError(tr("此图片没有可读取的本地数据"))
         path = Path(
-            unquote(parsed.path) if parsed.scheme == "file" else unquote(uri)
+            url2pathname(parsed.path)
+            if parsed.scheme == "file"
+            else unquote(uri)
         ).expanduser()
         if not path.is_absolute():
             path = Path(source.cwd) / path
@@ -207,7 +210,9 @@ def original_image_path(source: ImageSource, cache: Path) -> Path:
     if parsed.scheme == "file" and parsed.netloc not in ("", "localhost"):
         raise ValueError(tr("此图片没有可读取的本地数据"))
     path = Path(
-        unquote(parsed.path if parsed.scheme == "file" else source.uri)
+        url2pathname(parsed.path)
+        if parsed.scheme == "file"
+        else unquote(source.uri)
     ).expanduser()
     path = path if path.is_absolute() else Path(source.cwd) / path
     if not path.is_file():

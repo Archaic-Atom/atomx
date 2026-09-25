@@ -12,7 +12,7 @@ from textual.content import Content
 from textual.selection import Selection
 
 from arcatom_codex.demo import DemoClient
-from arcatom_codex.images import ImageSource, load_image, message_images
+from arcatom_codex.images import ImageSource, load_image, message_images, original_image_path
 from arcatom_codex.image_widgets import ImagePreview, MediaTranscript
 from arcatom_codex.ui import AtomXApp
 from arcatom_codex.widgets import Composer, SelectableTranscript
@@ -55,8 +55,9 @@ class ImageSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "image with space.png"
             Image.new("RGB", (50, 25), "red").save(path)
-            for uri in [path.name, path.as_uri()]:
+            for uri in [path.name, str(path), path.as_uri()]:
                 self.assertEqual(load_image(ImageSource(uri, directory)).size, (50, 25))
+                self.assertEqual(original_image_path(ImageSource(uri, directory), Path(directory)), path.resolve())
             with self.assertRaises(OSError):
                 load_image(ImageSource("missing.png", directory))
             with self.assertRaises(ValueError):

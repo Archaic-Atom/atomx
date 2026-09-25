@@ -149,6 +149,9 @@ class NavigationRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(app.screen, Detail)
             self.assertIn("worker-11", [p["threadId"] for m, p in client.calls if m == "thread/read"])
             await pilot.press("escape")
+            # Polling and events must describe the same fake backend state.
+            client.threads["worker-11"]["status"] = {"type": "idle"}
+            client.threads["worker-11"]["turns"][0]["status"] = "completed"
             await client.events.put({"method": "turn/completed", "params": {
                 "threadId": "worker-11", "turn": {"id": "turn-11", "status": "completed"}}})
             await pilot.pause(.2)
