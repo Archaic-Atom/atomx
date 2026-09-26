@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from textual.driver import Driver
 
+from .core.state import Session, clean
 from .i18n import tr
-from .state import Session, clean
 
 
 def title_driver(base: type[Driver]) -> type[Driver]:

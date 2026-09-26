@@ -23,10 +23,10 @@ from textual_image.widget import Image as TerminalImage
 from textual_image.widget._base import Image as BaseImage
 
 from .access import WorkspaceAccess
+from .core.state import clean
 from .i18n import tr
 from .images import ImageSource, load_image, original_image_path
 from .platform_support import open_image_file
-from .state import clean
 from .widgets import SelectableTranscript
 
 

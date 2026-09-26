@@ -1,12 +1,13 @@
 # 命令覆盖与行为
 
-核对版本：本机 `codex-cli 0.156.1`。以该版本官方 `tui/src/slash_command.rs` 的命令枚举和别名为基准，并参考 [官方命令文档](https://learn.chatgpt.com/docs/developer-commands?surface=cli)。菜单共 72 项（包含别名与 AtomX 补充入口），不是 72 个独立后端能力。
+核对版本：本机 `codex-cli 0.156.1`。以该版本官方 `tui/src/slash_command.rs` 的命令枚举和别名为基准，并参考 [官方命令文档](https://learn.chatgpt.com/docs/developer-commands?surface=cli)。菜单共 73 项（包含别名与 AtomX 补充入口），不是 73 个独立后端能力。
 
-## 应用内处理（48 项）
+## 应用内处理（49 项）
 
 | 命令 | 行为 |
 | --- | --- |
 | settings / palette | 语言、默认自动审查开关、整套界面配色、强调色、自动跟随、紧凑布局与默认目录；F2 也可打开 |
+| login | 未登录时打开 Codex 官方浏览器或设备码验证流程；完成后刷新账户与会话 |
 | model / reasoning | 从 model/list 分页读取模型与强度，通过 thread/settings/update 更新当前会话；取消和失败都不伪报成功 |
 | permissions | 从后端读取允许选择的权限配置，应用到当前会话 |
 | plan | 切换计划 / 执行模式；可附带任务；模型切换保留当前模式 |

@@ -175,11 +175,25 @@ class NavigationRuntimeTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause(.2)
             await app.open_session("demo-dashboard")
             await pilot.pause(.3)
-            await pilot.press("ctrl+t")
+            app.store.event("turn/started", {
+                "threadId": "demo-dashboard", "turn": {"id": "workers-turn"},
+            })
+            app.store.event("item/started", {
+                "threadId": "demo-dashboard", "item": {
+                    "id": "workers-spawn", "type": "collabAgentToolCall",
+                    "tool": "spawnAgent",
+                    "receiverThreadIds": [f"worker-{i}" for i in range(12)],
+                },
+            })
+            app.paint(force=True)
             panel = app.query_one("#activities", OptionList)
-            self.assertEqual(panel.option_count, 12)
+            if not panel.display:
+                await pilot.press("ctrl+t")
+            panel.focus()
+            panel.highlighted = 0
+            self.assertEqual(panel.option_count, 13)
             self.assertEqual(len(app.store.get(app.current).agents), 12)
-            await pilot.press(*(["down"] * 11), "enter")
+            await pilot.press(*(["down"] * 12), "enter")
             await pilot.pause(.2)
             self.assertIsInstance(app.screen, Detail)
             self.assertIn("worker-11", [p["threadId"] for m, p in client.calls if m == "thread/read"])

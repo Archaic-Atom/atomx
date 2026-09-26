@@ -2,20 +2,29 @@
 
 from __future__ import annotations
 
+import asyncio
+import webbrowser
 from typing import cast
+from urllib.parse import urlsplit
 
 from rich.console import RenderableType
+from rich.segment import Segment
+from rich.style import Style
 from rich.text import Text
 from textual import events
 from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.content import Content
 from textual.message import Message
+from textual.screen import Screen
 from textual.selection import Selection
+from textual.strip import Strip
 from textual.widget import Widget
 from textual.widgets import Button, Input, OptionList, Static, TextArea
 
 from .access import WorkspaceAccess
+from .i18n import tr
+from .terminal.mouse_pointer import set_pointer
 
 
 class Composer(WorkspaceAccess, TextArea):
@@ -25,6 +34,28 @@ class Composer(WorkspaceAccess, TextArea):
         Binding("enter", "submit", show=False),
         Binding("shift+enter,ctrl+j", "newline", show=False),
     ]
+
+    @property
+    def gutter_width(self) -> int:
+        """Reserve space for the visual prompt. 为提示符预留空间，不计入输入内容。"""
+        return 2
+
+    def render_line(self, y: int) -> Strip:
+        """Keep a prompt beside the first visible input row.
+
+        在首个可见输入行旁显示提示符，保留原生光标、选区和换行坐标。
+        """
+        content = super().render_line(y)
+        prompt = Strip(
+            [
+                Segment(
+                    "> " if y == 0 else "  ",
+                    Style(color=self.workspace.palette.accent),
+                )
+            ],
+            cell_length=self.gutter_width,
+        )
+        return Strip.join([prompt, content]).crop(0, self.content_size.width)
 
     class Submitted(Message):
         """Signal an explicit submit action. 表示用户主动提交。"""
@@ -373,9 +404,73 @@ class SelectableTranscript(WorkspaceAccess, Static):
                     for x in range(max(0, start), end)
                     if offset + x not in self._copy_ignored
                 )
+                if (
+                    selection.end is not None
+                    and y == selection.end.y
+                    and selected.strip(" \t")
+                ):
+                    selected = selected.rstrip(" \t")
                 lines.append(selected)
             offset += len(line) + 1
         return "\n".join(lines), "\n"
+
+    def on_mouse_down(self, event: events.MouseDown) -> None:
+        """Remember an action press so drags cannot trigger clicks.
+
+        记录按下位置，防止拖选文字时误触链接或命令。
+        """
+        self._action_mouse_down = (
+            (event.screen_x, event.screen_y) if event.button == 1 else None
+        )
+        if (
+            event.button == 1
+            and not event.style.link
+            and not event.style.meta.get("atomx_activity_id")
+        ):
+            set_pointer(self.workspace._driver, "text")
+
+    def on_mouse_up(self, event: events.MouseUp) -> None:
+        """Return to the hover shape after selection. 选完文字后恢复悬停形状。"""
+        self.workspace.update_mouse_pointer(event, selecting=False)
+
+    async def on_click(self, event: events.Click) -> None:
+        """Open a link or toggle one command only on a deliberate click.
+
+        明确单击时打开链接或展开命令，拖选时不触发。
+        """
+        down = getattr(self, "_action_mouse_down", None)
+        self._action_mouse_down = None
+        if (
+            event.button != 1
+            or event.chain != 1
+            or down != (event.screen_x, event.screen_y)
+            or self.screen.selections
+        ):
+            return
+        activity_id = event.style.meta.get("atomx_activity_id")
+        if activity_id and self.screen is self.workspace.main_screen:
+            event.stop()
+            self.workspace.toggle_inline_activity(str(activity_id))
+            return
+        url = event.style.link
+        if not url:
+            return
+        try:
+            parsed = urlsplit(url)
+        except ValueError:
+            return
+        if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:
+            return
+        event.stop()
+        try:
+            opened = await asyncio.to_thread(webbrowser.open, url)
+        except (OSError, ValueError):
+            opened = False
+        if not opened:
+            self.notify(
+                tr("浏览器未能自动打开，请复制链接手动打开。"),
+                severity="warning",
+            )
 
     def on_resize(self) -> None:
         """Schedule layout-dependent refresh after dimensions settle.
@@ -387,6 +482,36 @@ class SelectableTranscript(WorkspaceAccess, Static):
 
 class TranscriptScroll(WorkspaceAccess, VerticalScroll):
     """Arrow navigation returns naturally to the composer. 方向键浏览后返回输入。"""
+
+    @property
+    def is_vertical_scroll_end(self) -> bool:
+        """Treat non-overflowing anchored content as already at the bottom.
+
+        短内容贴底时 Textual 可能产生负偏移；没有溢出就已经在底部。
+        """
+        return self.max_scroll_y == 0 or super().is_vertical_scroll_end
+
+    def on_mount(self) -> None:
+        """Use layout anchoring and pause during selection. 布局持续贴底，选区时暂停。"""
+        self.screen.text_selection_started_signal.subscribe(
+            self, self.pause_for_selection
+        )
+        self.sync_follow()
+
+    def sync_follow(self, *, restart: bool = False) -> None:
+        """Keep the anchor across layout passes, respecting deliberate browsing.
+
+        跨多次布局保持贴底；主动浏览历史、选择文字及关闭跟随时暂停。
+        """
+        enabled = self.workspace.view_preferences.get("follow_output", True)
+        if not enabled or self.screen.selections:
+            self.anchor(False)
+        elif restart or (not self.is_anchored and self.is_vertical_scroll_end):
+            self.anchor()
+
+    def pause_for_selection(self, screen: Screen) -> None:
+        """Stop moving text before a drag begins. 拖选开始前停止移动正文。"""
+        self.anchor(False)
 
     async def on_key(self, event: events.Key) -> None:
         """Handle transcript browsing without changing a draft. 浏览日志且保留输入草稿。"""

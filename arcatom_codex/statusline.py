@@ -9,8 +9,8 @@ import time
 from rich.text import Text
 
 from .appearance import PALETTES, Palette
+from .core.state import Session, clean
 from .i18n import tr
-from .state import Session, clean
 
 
 def remaining_color(percent: float, palette: Palette | None = None) -> str:
@@ -126,6 +126,9 @@ def build_status(
         name = re.sub(
             r"\s+\([^)]*context[^)]*\)$", "", clean(session.meta["model"])
         )
+        effort = clean(session.meta.get("reasoningEffort"))
+        if effort:
+            name += f" · {effort}"
         parts.append(("model", Text(name, palette.accent)))
     result = Text()
     row_width = 0

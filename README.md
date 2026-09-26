@@ -18,7 +18,7 @@ Older Homebrew versions without `brew trust` can omit that line.
 
 ## Install and run
 
-Requires Python 3.11+ and an installed, signed-in Codex CLI. The protocol integration is verified against `codex-cli 0.156.1`.
+Requires Python 3.11+ and an installed Codex CLI. The protocol integration is verified against `codex-cli 0.156.1`. If Codex is not signed in, AtomX offers the official browser or device-code flow; you can also reopen it from the home screen or with `/login`. AtomX does not handle account passwords or tokens.
 
 macOS / Linux:
 
@@ -28,7 +28,6 @@ cd atomx
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock
 .venv/bin/python -m pip install --no-deps .
-codex login
 .venv/bin/atomx
 ```
 
@@ -40,7 +39,6 @@ cd atomx
 py -3 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.lock
 .venv\Scripts\python.exe -m pip install --no-deps .
-codex login
 .venv\Scripts\atomx.exe
 ```
 
@@ -83,7 +81,7 @@ Long conversations open immediately and load their newest 40 items in the backgr
 | Attach image file / remove pending image | `F4` / `F8` |
 | Slash commands | `/`, then `↑↓`, `Tab` to complete, `Enter` to run, `Esc` to dismiss |
 | Model / reasoning effort | `/model` / `/reasoning` |
-| Subagents and processes | `Ctrl+T`, then `↑↓` and `Enter` for details |
+| Main and subagents | Running subagents expand the tree automatically; `Ctrl+T` toggles it, then `↑↓` and `Enter` open each thread |
 | Settings / colors / language | `F2`, `/settings`, `/palette` |
 | Usage / refresh | `Ctrl+U` / `Ctrl+R` |
 | Interrupt current turn | `Esc` while a turn is running; closes any open dialog first |
@@ -102,11 +100,13 @@ Home rows use four aligned columns: **Title / Summary / Directory / Last active*
 
 The composer grows with typed, pasted and wrapped lines, then shrinks when cleared. The conversation reflows with it and keeps the latest line visible when following output; browsing older messages preserves your position. `Shift+Enter` (or `Ctrl+J`) inserts a newline and moves the cursor onto it. When the draft exceeds the available terminal height, it scrolls while keeping a small part of the conversation visible.
 
-Shell commands occupy one status line in the conversation, even when they contain multiline scripts. Long commands are ellipsized; press `Ctrl+T`, select a command and press `Enter` to see the complete script and output.
+Commands, searches, file changes and other activity appear directly below the preceding text as one collapsed `>` row, without an extra blank row. Click a row to expand only its request (the full command, search query, changed paths or tool arguments), then click its downward arrow to collapse it. The arrow turns briefly during each toggle, and a running activity has a spinning status marker. Long summaries are ellipsized. To inspect execution output or search and file-change results, press `Ctrl+T`, select the Main or subagent thread and press `Enter`, then select the activity and press `Enter` again. `Esc` returns one level at a time. Thread text is selectable for copying.
+
+In iTerm2, AtomX shows an arrow over ordinary content, a hand over links and clickable activities, and an I-beam over editable fields or while selecting text. It restores the terminal's text pointer on exit. Other terminals use Textual's native pointer styles where supported.
 
 The default appearance is **Graphite + Copper**. All palettes use the terminal default background and normal text color, including inputs, section headings, status bars, dialogs and notifications. Borders and accent colors distinguish controls without solid panel fills; selection highlighting remains visible. The terminal’s existing transparency setting remains effective. Settings offers Warm sand, Midnight, Forest, Graphite and Paper palettes, accent swatches, language, compact layout, output following and the new-session directory. Use ↑/↓ to move between settings, Enter to open a choice, ↑/↓ to choose, and Enter to confirm. Esc closes the choice first, then leaves settings; Ctrl+S saves. Directory editing also starts with Enter, and Esc cancels that field edit. Colors preview immediately; Cancel restores the previous appearance. Language applies on Save. User messages use bold text on a neutral gray background to make your prompts easy to find. Inline code and fenced code retain their text colors without a solid background; changing the interface language does not translate user messages, model replies, paths or server data.
 
-Usage stays in the status bar: time, cumulative session tokens, remaining context, remaining rate-limit windows and model. Missing values are hidden or shown as `—`; cached input is not counted twice. Session totals can overlap through inherited history and are not billing totals. Account limits refresh every minute; `Ctrl+R` refreshes manually.
+Usage stays in the status bar: time, cumulative session tokens, remaining context, remaining rate-limit windows, model and reasoning effort. Missing values are hidden or shown as `—`; cached input is not counted twice. Session totals can overlap through inherited history and are not billing totals. Account limits refresh every minute; `Ctrl+R` refreshes manually.
 
 `/statusline` controls fields, `/title` controls the terminal title, and `/theme` controls code highlighting. Preferences live in `~/.config/arcatom/preferences.json` on all platforms. Demo mode does not persist preferences. The app respects `NO_COLOR`; remove that environment variable if you want colors.
 
@@ -135,11 +135,11 @@ Pasted images appear as pending attachments and are sent only after Enter. Attac
 
 **Approve for me is enabled by default.** In **F2 → Approve for me**, turn the switch off and Save to use manual approvals. The preference sets `approvalPolicy=on-request` and selects Codex's `auto_review` or `user` reviewer for new/resumed sessions and subsequent turns. It preserves sandbox boundaries and global Codex configuration. Active turns and already-open approval dialogs are not retroactively approved. Backend restrictions still apply; a rejected setting prevents the new request from being sent. See [official auto-review documentation](https://learn.chatgpt.com/docs/sandboxing/auto-review).
 
-The client connects to a shared local `codex app-server`, retaining local login, configuration, sandboxing and approvals. Approval dialogs default to decline; unsupported interactive requests are declined explicitly. Returning home does not stop work. Quitting disconnects this window while the shared backend continues its tasks.
+The client connects to a shared local `codex app-server`, retaining local login, configuration, sandboxing and approvals. MCP extension forms support text, numbers, switches, single choice and multiple choice fields, with explicit submit, decline and cancel actions. URL requests show a copyable link for the user to complete in a browser. Approval dialogs default to decline; unsupported interactive requests are declined explicitly. Returning home does not stop work. Quitting disconnects this window while the shared backend continues its tasks.
 
-The menu contains **72 entries** including aliases: 48 handled in the app and 24 marked **[native]**. See [command coverage](docs/commands.md). Native commands temporarily hand the terminal to official Codex, then reconnect when you exit it with `/quit`. Finish active turns and background terminals before handing off. On macOS/Linux, a POSIX PTY prefills the slash command without submitting it. On Windows, Codex inherits the console and you type the selected command manually. Official trust, login, permissions and platform restrictions still apply.
+The menu contains **73 entries** including aliases: 49 handled in the app and 24 marked **[native]**. See [command coverage](docs/commands.md). Native commands temporarily hand the terminal to official Codex, then reconnect when you exit it with `/quit`. Finish active turns and background terminals before handing off. On macOS/Linux, a POSIX PTY prefills the slash command without submitting it. On Windows, Codex inherits the console and you type the selected command manually. Official trust, login, permissions and platform restrictions still apply.
 
-The session activity panel shows real subagent threads, backend-reported background processes and recent command output. It does not launch agents just to populate the UI. Existing personal Claude skills can be referenced from their original files; see [workflow compatibility](docs/claude-compatibility.md). Personal files are never included in this repository.
+The activity panel shows a **Main → subagent** tree for the current or most recent turn, with nested agents under their parent. Indentation stays within the name column, so status, token usage and elapsed time align even across deep levels. The columns refresh when terminal width changes and keep the selected agent; unavailable timing appears as `—`. A later turn's agents replace the earlier group in this panel rather than accumulating beside them; `/subagents` can still open earlier child threads. Running subagents open the panel automatically, and it closes when they finish even if you opened it during that work. A panel opened after completion stays open for inspection. Press Enter on a thread to inspect its messages, tools, commands and backend-reported processes. It does not launch agents just to populate the UI. Existing personal Claude skills can be referenced from their original files; see [workflow compatibility](docs/claude-compatibility.md). Personal files are never included in this repository.
 
 ## Development and verification
 
@@ -156,7 +156,7 @@ The terminal header uses an ASCII robot with aligned borders, without requiring
 terminal-specific image protocols. The supplied Archaic-Atom black/white PNG logos
 remain packaged as team assets.
 
-[Contributing](CONTRIBUTING.md) · [Codex App Server](https://learn.chatgpt.com/docs/app-server) · [Textual](https://textual.textualize.io/)
+[Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md) · [Codex App Server](https://learn.chatgpt.com/docs/app-server) · [Textual](https://textual.textualize.io/)
 
 ## AtomX compatibility and keyboard modes
 
