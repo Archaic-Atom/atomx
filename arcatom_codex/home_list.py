@@ -10,8 +10,8 @@ from rich.console import Group
 from rich.text import Text
 
 from .appearance import Palette
+from .core.state import Session, clean
 from .i18n import tr
-from .state import Session, clean
 
 
 def section_heading(

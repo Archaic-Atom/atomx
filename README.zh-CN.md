@@ -10,12 +10,12 @@ brew trust --formula Archaic-Atom/tap/atomx  # Homebrew 7+
 brew install Archaic-Atom/tap/atomx
 ```
 
-这是团队维护的 tap。另行安装并登录 Codex CLI 后，用 `atomx` 启动。
+这是团队维护的 tap。另行安装 Codex CLI 后，用 `atomx` 启动；未登录时 AtomX 会提供官方浏览器登录入口。
 更新使用 `brew update && brew upgrade atomx`；旧版 Homebrew 没有 `trust` 命令时可跳过该行。
 
 ## 启动
 
-需要 Python 3.11+ 和已经登录的 Codex CLI。当前验证版本为 `codex-cli 0.156.1`。支持 macOS、Linux 和 Windows 的平台适配；本地实测为 macOS，CI 配置包含三个平台。Windows 原生接管直接继承控制台，需要手动输入所选斜杠命令。
+需要 Python 3.11+ 和已安装的 Codex CLI。当前验证版本为 `codex-cli 0.156.1`。支持 macOS、Linux 和 Windows 的平台适配；本地实测为 macOS，CI 配置包含三个平台。Windows 原生接管直接继承控制台，需要手动输入所选斜杠命令。未登录时启动会弹出登录窗口，支持 ChatGPT 浏览器验证和设备码验证；稍后可从首页的「登录 Codex」或 `/login` 返回。AtomX 不读取账户密码或令牌。
 
 在项目根目录安装并启动：
 
@@ -24,7 +24,6 @@ git clone https://github.com/Archaic-Atom/atomx.git
 cd atomx
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock
-codex login
 ./atomx
 ```
 
@@ -64,7 +63,7 @@ atomx --check  # 验证本机连接，不发送模型请求
 
 `/model` 打开后端实时模型列表，选择模型后再选择推理强度；确认成功才更新状态栏，从下一回合生效。仅修改当前会话，保留其他会话的模型。`/reasoning` 可单独调整强度。
 
-已按本机 Codex CLI **0.156.1** 接入其内置命令及别名，加上 AtomX 入口共 **72 项**：48 项在应用内处理，24 项标为 **[原生]**。详细对应关系见 [命令覆盖说明](docs/commands.md)。
+已按本机 Codex CLI **0.156.1** 接入其内置命令及别名，加上 AtomX 入口共 **73 项**：49 项在应用内处理，24 项标为 **[原生]**。详细对应关系见 [命令覆盖说明](docs/commands.md)。
 
 带 `[原生]` 的命令在同一终端打开官方 Codex 界面，准备好命令后由你按 Enter 执行，使用 `/quit` 返回 AtomX。首次进入目录时仍会出现官方登录或信任流程；完成后若命令尚未填入，输入所选命令即可。返回后重新连接后端以加载配置变化。进入前需完成或停止运行中的回合和后台终端。
 
@@ -110,13 +109,14 @@ atomx --check  # 验证本机连接，不发送模型请求
 
 ## 会话内的子代理与进程
 
-`Ctrl+T` 展开当前会话的面板。子代理通过 Codex 的真实协作事件和子线程列表发现，不会仅为填充界面而启动。需要时在消息中明确让 Codex 分工。
+活动面板按 **Main → 子代理** 显示当前或最近一轮的线程树，嵌套子代理缩进在其父代理下。新一轮的代理不会与前一轮累加；旧代理仍可通过 `/subagents` 进入。子代理运行时自动展开、全部结束后自动收起；运行期间手动打开的面板也会在结束时收起，结束后手动打开则保持供回看。选中 Main 或任一子代理按 Enter，可查看该线程的消息、工具、命令和后台进程。子代理通过 Codex 的真实协作事件和子线程列表发现；需要时在消息中明确让 Codex 分工。
 
-- 子代理：显示名称、运行状态和可读到的 Token 计数。回车打开输出详情，每两秒刷新。
-- 后台进程：显示 Codex 报告的命令、进程 ID。回车查看收到的输出流。
-- 普通命令：保留状态、日志和退出码，面板显示最近 30 条。
+- Main 与子代理：层级缩进保留在名称列内，深至多级时状态、Token 用量和用时仍对齐；终端宽度变化后自动重排并保留当前选择。缺少可靠时间时显示「—」。
+- 线程详情：打开时定位到最新消息并选中最后一条命令；消息可以选中复制，命令和工具先显示一行摘要。选中摘要按 Enter 展开完整输出，按 Esc 返回线程，再按 Esc 返回代理树。Codex 报告的后台进程和进程 ID 也在所属线程显示；每两秒刷新。
 
-后端每四秒刷新当前会话的代理与后台进程。普通消息和命令输出通过事件流实时更新。 会话正文中的命令只显示一行状态和命令首行，多行脚本及超长命令默认收起；按 `Ctrl+T` 选择命令并回车，查看完整脚本和输出。外部 Codex 客户端正在执行的任务可能属于另一个服务进程，不能保证同步其运行状态或控制其进程；历史记录仍可读取。新版 AtomX 窗口之间共享事件；独立启动的其他 Codex 服务不在此同步范围内。
+后端每四秒刷新当前会话的代理及其各自的后台进程。普通消息和命令输出通过事件流实时更新。会话正文中的命令、搜索、文件修改和其他活动紧接前面的文字显示为一行 `>` 摘要，默认收起，没有多余空行；点击只展开请求内容（完整命令、搜索词、文件路径或工具参数），向下箭头会短暂转动，再次点击则收起。执行中的活动在箭头左侧显示转圈状态。过程和结果仍在 `Ctrl+T` 中：选择所属线程并回车，再选中活动按回车查看。外部 Codex 客户端正在执行的任务可能属于另一个服务进程，不能保证同步其运行状态或控制其进程；历史记录仍可读取。新版 AtomX 窗口之间共享事件；独立启动的其他 Codex 服务不在此同步范围内。
+
+在 iTerm2 中，普通内容悬停显示箭头，链接与可点击活动显示手形，输入框和文字拖选显示 I 形；退出 AtomX 后恢复终端的文本指针。其他终端在支持时使用 Textual 原生鼠标样式。
 
 ## 用量数据
 
@@ -154,7 +154,7 @@ atomx --check  # 验证本机连接，不发送模型请求
 
 通过 `codex app-server --stdio` 连接，沿用本机登录及 Codex 配置。不会读取或复制认证文件，不修改全局 Codex 配置，不绕过其沙箱与审批。
 
-命令/文件修改审批、额外权限请求和结构化问题会显示交互弹窗。审批默认焦点为拒绝；不自动批准、不保存永久放行规则。当前尚未实现的 MCP 扩展表单等交互会明确拒绝。命令目录覆盖本机版本，专用功能交给官方界面处理；账户权限、平台限制及实验开关仍由 Codex 决定，例如 Windows 沙箱命令无法在 macOS 执行。
+命令/文件修改审批、额外权限请求和结构化问题会显示交互弹窗。MCP 扩展表单支持文字、数字、开关、单选与多选字段，提交前检查必填项及字段限制；链接请求可复制地址，用户在浏览器完成后明确确认。按 Esc 取消，或明确选择拒绝。审批默认焦点为拒绝；不自动批准、不保存永久放行规则。无法识别的表单字段不能提交，其他未实现的扩展请求会明确拒绝。命令目录覆盖本机版本，专用功能交给官方界面处理；账户权限、平台限制及实验开关仍由 Codex 决定，例如 Windows 沙箱命令无法在 macOS 执行。
 
 ## 验证与开发
 
@@ -174,7 +174,7 @@ atomx --check  # 验证本机连接，不发送模型请求
 
 结构：`rpc.py` 管理 JSONL 连接；`state.py` 处理事件与用量；`ui.py` 与 `style.tcss` 实现界面；`demo.py` 为离线演示与测试提供同一套数据。
 
-参考：[官方 Codex App Server](https://learn.chatgpt.com/docs/app-server)、[官方子代理说明](https://learn.chatgpt.com/docs/agent-configuration/subagents)、[Textual](https://textual.textualize.io/)。
+参考：[代码结构](docs/architecture.md)、[官方 Codex App Server](https://learn.chatgpt.com/docs/app-server)、[官方子代理说明](https://learn.chatgpt.com/docs/agent-configuration/subagents)、[Textual](https://textual.textualize.io/)。
 
 ## 会话分区、图片与平台
 
@@ -188,7 +188,6 @@ cd atomx
 py -3 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.lock
 .venv\Scripts\python.exe -m pip install --no-deps .
-codex login
 .venv\Scripts\atomx.exe
 ```
 

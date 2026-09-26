@@ -29,6 +29,14 @@ class Palette:
     error: str
     dark: bool = True
 
+    @property
+    def link(self) -> str:
+        """Use the CVPR-style rose link color with theme-aware contrast.
+
+        链接统一使用 CVPR 风格的玫红色，并兼顾深浅背景对比度。
+        """
+        return "#e8a0b1" if self.dark else "#993f58"
+
     def theme(self) -> Theme:
         """Build a Textual theme with exact semantic variables. 构造主题变量。"""
         variables = {
@@ -184,11 +192,18 @@ def brand(
     home: bool,
     codex_version: str | None = None,
     width: int | None = None,
+    connection_text: str = "",
+    connected: bool = False,
 ) -> Text:
     """Render an ASCII robot with equal-width sides. 等宽字符避免边框错位。"""
     if not home:
         return Text.assemble(
-            ("AtomX", "bold " + palette.accent), (" / CODEX", palette.muted)
+            ("AtomX", "bold " + palette.accent),
+            (" / CODEX", palette.muted),
+            (
+                "  " + connection_text if connection_text else "",
+                palette.success if connected else palette.accent,
+            ),
         )
     rows = ROBOT_COMPACT if compact else ROBOT
     result = Text()
@@ -207,6 +222,11 @@ def brand(
                 or len(line) + label.cell_len + Text(caption).cell_len <= width
             ):
                 result.append(caption, palette.foreground)
+        elif index == len(rows) // 2 + 1 and connection_text:
+            result.append(
+                "  " + connection_text,
+                palette.success if connected else palette.accent,
+            )
         if index < len(rows) - 1:
             result.append("\n")
     return result

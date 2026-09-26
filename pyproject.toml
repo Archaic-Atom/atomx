@@ -1,16 +1,22 @@
 [build-system]
-requires = ["setuptools==80.9.0"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "atomx-codex"
-version = "0.1.1"
+version = "0.2.0"
 description = "A keyboard-first terminal workspace for local Codex sessions"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
-dependencies = ["textual==6.12.0", "Pillow==12.3.0", "websockets==15.0.1", "textual-image==0.12.0"]
+dependencies = [
+    "textual==8.2.8",
+    "Pillow==12.3.0",
+    "websockets==17.1",
+    "textual-image==0.12.0; python_version < '3.12'",
+    "textual-image==0.14.1; python_version >= '3.12'",
+]
 
 [project.urls]
 Repository = "https://github.com/Archaic-Atom/atomx"

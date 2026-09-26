@@ -12,7 +12,12 @@ from textual.driver import Driver
 
 from arcatom_codex.appearance import ROBOT, ROBOT_COMPACT
 from arcatom_codex.demo import DemoClient
-from arcatom_codex.keyboard import ArrowGesture, keyboard_driver, reserved_navigation
+from arcatom_codex.keyboard import (
+    ArrowGesture,
+    keyboard_driver,
+    normalize_keypad_key,
+    reserved_navigation,
+)
 from arcatom_codex.ui import AtomXApp, Composer
 
 
@@ -31,6 +36,7 @@ class KeyboardPolicyTests(unittest.TestCase):
         with patch.object(base, "write") as write:
             for _ in range(3):  # Startup, native handoff resume and another resume.
                 instance.write("\x1b[>1u")
+                instance.write("\x1b[>25u")
                 instance.write("\x1b[?1049h")
                 instance.write("ordinary output")
                 instance.write("\x1b[<u")
@@ -38,7 +44,7 @@ class KeyboardPolicyTests(unittest.TestCase):
             self.assertNotIn("\x1b[<u", [call.args[0] for call in write.call_args_list])
         self.assertIs(keyboard_driver(base, enhanced=True), base)
         # Fail visibly if a Textual upgrade changes the driver contract.
-        self.assertIn(r'\x1b[>1u', inspect.getsource(base.start_application_mode))
+        self.assertIn(r'\x1b[>', inspect.getsource(base.start_application_mode))
         self.assertIn(r'\x1b[<u', inspect.getsource(base.stop_application_mode))
 
     def test_system_navigation_policy_and_normal_editing_keys(self):
@@ -61,6 +67,20 @@ class KeyboardPolicyTests(unittest.TestCase):
         self.assertFalse(gesture.press("down", 1.7))
         gesture.reset()
         self.assertFalse(gesture.press("down", 1.8))
+
+    def test_keypad_decimal_protocols_and_shortcuts(self) -> None:
+        """Normalize decimal without rewriting shortcuts or Delete.
+
+        转换小数点，不改写组合键及关闭 Num Lock 后的 Delete。
+        """
+        for sequence in (".", "\x1bOn", "\x1b[57409u", "\x1b[57409;129u"):
+            event = next(iter(XTermParser().feed(sequence)))
+            normalized = normalize_keypad_key(event)
+            self.assertEqual((normalized.key, normalized.character), ("full_stop", "."))
+            self.assertTrue(normalized.is_printable)
+        for sequence in ("\x1b[57409;5u", "\x1b[57426u", "\x1b[3~"):
+            event = next(iter(XTermParser().feed(sequence)))
+            self.assertIs(normalize_keypad_key(event), event)
 
     def test_parser_retains_modifiers_and_distinguishes_newline(self):
         parser = XTermParser(debug=False)
@@ -90,3 +110,33 @@ class KeyboardUiTests(unittest.IsolatedAsyncioTestCase):
             focused = app.screen.focused
             await pilot.press("super+right", "ctrl+alt+left")
             self.assertIs(app.screen.focused, focused)
+
+
+    async def test_keypad_decimal_types_in_home_and_composer(self) -> None:
+        """Send decoded terminal input through real application routing.
+
+        将终端协议解析结果送入真实路由，验证首页及输入框都能输入小数点。
+        """
+        app = AtomXApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
+        async with app.run_test() as pilot:
+            await pilot.pause(.2)
+            app.post_message(next(iter(XTermParser().feed("\x1b[57409u"))))
+            await pilot.pause(.1)
+            self.assertEqual(app.query_one("#search").value, ".")
+            await app.open_session("demo-dashboard")
+            await pilot.pause(.2)
+            composer = app.query_one(Composer)
+            composer.load_text("1")
+            composer.move_cursor(composer.document.end)
+            app.leave_composer()
+            app.post_message(next(iter(XTermParser().feed("\x1b[57409;129u"))))
+            await pilot.pause(.1)
+            self.assertTrue(composer.has_focus)
+            self.assertEqual(composer.text, "1.")
+            for sequence in (".", "\x1bOn", "\x1b[57409u"):
+                app.post_message(next(iter(XTermParser().feed(sequence))))
+                await pilot.pause(.05)
+            self.assertEqual(composer.text, "1....")
+            app.post_message(next(iter(XTermParser().feed("\x1b[57409;5u"))))
+            await pilot.pause(.1)
+            self.assertEqual(composer.text, "1....")
