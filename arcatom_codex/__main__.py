@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .backend.rpc import CodexClient
 from .i18n import tr
-from .rpc import CodexClient
 
 
 async def check(cwd: str, binary: str) -> int:
@@ -80,7 +80,7 @@ def main() -> None:
 
     client: CodexClient | DemoClient
     if args.demo:
-        from .demo import DemoClient
+        from .backend.demo import DemoClient
 
         client = DemoClient()
     else:

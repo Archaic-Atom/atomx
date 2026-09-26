@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import time
 from collections.abc import Coroutine
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from rich.console import Group
+from rich.console import Group, RenderableType
 from rich.text import Text
 from textual import events, on
+from textual import selection as textual_selection
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.geometry import Offset
 from textual.screen import Screen
 from textual.timer import Timer
 from textual.widgets import (
@@ -27,34 +31,54 @@ from textual.widgets import (
 )
 from textual.widgets.option_list import Option
 
+from .actions.backend_actions import BackendActions
+from .actions.command_actions import CommandActions
+from .actions.history_actions import HistoryActions
+from .actions.home_actions import HomeActions
+from .actions.response_actions import ResponseActions
+from .actions.turn_actions import TurnActions
+from .actions.view_actions import ViewActions
 from .appearance import brand, palette_for
-from .backend_actions import BackendActions
+from .backend.demo import DemoClient
+from .backend.rpc import CodexClient, RpcError
 from .clipboard import copy_text, import_image, read_clipboard
-from .command_actions import CommandActions
-from .commands import BY_NAME, Command, matches
-from .demo import DemoClient
+from .core.commands import BY_NAME, Command, matches
+from .core.state import (
+    Store,
+    clean,
+    note_agent_timing,
+    number,
+    parent_id,
+    rollout_usage,
+    set_agent_name,
+    timestamp_seconds,
+)
+from .dialogs import ActivityDetail as ActivityDetail
 from .dialogs import Approval as Approval
 from .dialogs import Detail as Detail
+from .dialogs import Login as Login
 from .dialogs import NewSession as NewSession
 from .dialogs import Question as Question
-from .history_actions import HistoryActions
-from .home_actions import HomeActions
+from .elicitation import ElicitationForm, ElicitationLink
 from .i18n import tr
 from .image_widgets import MediaTranscript
-from .keyboard import ArrowGesture, keyboard_driver, reserved_navigation
 from .navigation import Navigation
 from .personal import bridge_instructions, discover_skills
 from .pickers import Prompt
 from .preferences import read_preferences
+from .rendering import COMPACT_ACTIVITY_TYPES
 from .rendering import MessageMarkdown as MessageMarkdown
+from .rendering import activity_request as activity_request
 from .rendering import command_summary as command_summary
 from .rendering import pretty as pretty
-from .response_actions import ResponseActions
-from .rpc import CodexClient, RpcError
 from .settings import Settings
-from .state import Store, clean, number, rollout_usage
-from .turn_actions import TurnActions
-from .view_actions import ViewActions
+from .terminal.keyboard import (
+    ArrowGesture,
+    keyboard_driver,
+    normalize_keypad_key,
+    reserved_navigation,
+)
+from .terminal.mouse_pointer import pointer_driver, set_pointer
 from .widgets import Composer as Composer
 from .widgets import HomeButton as HomeButton
 from .widgets import SelectableTranscript as SelectableTranscript
@@ -125,7 +149,10 @@ class AtomXApp(
         super().__init__(
             ansi_color=True,
             driver_class=title_driver(
-                keyboard_driver(self.get_driver_class(), enhanced)
+                pointer_driver(
+                    keyboard_driver(self.get_driver_class(), enhanced),
+                    os.environ.get("TERM_PROGRAM", ""),
+                )
             ),
         )
         self.cwd, self.demo = cwd, demo
@@ -133,7 +160,10 @@ class AtomXApp(
         self.store = Store()
         self.current: str | None = None
         self.ready = False
+        self.auth_needed = False
         self.detail_open = False
+        self.activity_auto_tid: str | None = None
+        self.activity_manual_closed: dict[str, str] = {}
         self.sending: set[str] = set()
         self.stop_requested: set[str] = set()
         self.interrupting: set[str] = set()
@@ -154,6 +184,10 @@ class AtomXApp(
         self.transcript_cache: dict[str, tuple] = {}
         self.transcript_signature: tuple | None = None
         self.activity_signature: tuple | None = None
+        self.activity_layout_width = -1
+        self.expanded_activities: dict[str, set[str]] = {}
+        self.activity_arrow_started: dict[tuple[str, str], float] = {}
+        self.last_activity_spinner_frame = -1
         self.personal_skills = [] if demo else discover_skills()
         self.personal_instructions = (
             "" if demo else bridge_instructions(self.personal_skills)
@@ -197,6 +231,8 @@ class AtomXApp(
 
     async def on_event(self, event: events.Event) -> None:
         """Route typing before list shortcuts can consume it. 输入首字不被列表吞掉。"""
+        if isinstance(event, events.Key) and not event.is_forwarded:
+            event = normalize_keypad_key(event)
         if isinstance(event, events.Key) and reserved_navigation(event.key):
             event.stop()
             event.prevent_default()
@@ -228,6 +264,97 @@ class AtomXApp(
             else:
                 self.screen.set_focus(self.query_one("#search"))
         await super().on_event(event)
+
+    def on_mouse_move(self, event: events.MouseMove) -> None:
+        """Keep transcript drags within the visible transcript viewport.
+
+        鼠标拖出日志区时将选区收在可见边界，避免误选标题和下方控件。
+        """
+        screen = self.screen
+        self.update_mouse_pointer(event, selecting=bool(screen._selecting))
+        start = getattr(screen, "_select_start", None)
+        select_state = getattr(screen, "_select_state", None)
+        start_widget = (
+            start[0]
+            if start is not None
+            else getattr(
+                getattr(select_state, "start", None), "content_widget", None
+            )
+        )
+        if (
+            screen is not self.main_screen
+            or not screen._selecting
+            or not isinstance(start_widget, SelectableTranscript)
+        ):
+            return
+        scroll = self.query_one("#transcript-scroll", TranscriptScroll)
+        region = scroll.content_region
+        if region.contains(event.screen_x, event.screen_y):
+            return
+        x = max(region.x, min(event.screen_x, region.right - 1))
+        y = max(region.y, min(event.screen_y, region.bottom - 1))
+        # Find the closest text row when an image occupies the edge.
+        # 边界若是图片，则向内寻找最近的可选中文字行。
+        direction = 1 if event.screen_y < region.y else -1
+        while region.y <= y < region.bottom:
+            widget, offset = screen.get_widget_and_offset_at(x, y)
+            if isinstance(widget, SelectableTranscript) and offset is not None:
+                if start is not None:
+                    setattr(
+                        screen, "_select_end", (widget, Offset(x, y), offset)
+                    )
+                elif select_state is not None:
+                    select_end = getattr(textual_selection, "SelectEnd")(
+                        widget.parent, widget, offset
+                    )
+                    setattr(
+                        screen,
+                        "_select_state",
+                        select_state.update_end(Offset(x, y), select_end),
+                    )
+                return
+            y += direction
+
+    def on_mouse_up(self, event: events.MouseUp) -> None:
+        """Restore the hovered pointer after a selection. 结束拖选后恢复悬停形状。"""
+        self.update_mouse_pointer(event, selecting=False)
+
+    def _set_pointer_shape(self, shape: str) -> None:
+        """Translate Textual pointer updates for iTerm2's OSC 22 names.
+
+        把 Textual 的鼠标形状更新转换为 iTerm2 支持的 OSC 22 名称。
+        """
+        driver = self._driver
+        if getattr(driver, "_atomx_pointer_active", False):
+            set_pointer(
+                driver,
+                shape if shape in ("default", "pointer", "text") else "default",
+            )
+        else:
+            super()._set_pointer_shape(shape)
+
+    def update_mouse_pointer(
+        self, event: events.MouseEvent, *, selecting: bool
+    ) -> None:
+        """Match links, editable fields and selection with pointer shapes.
+
+        按链接、编辑区与拖选状态切换鼠标形状。
+
+        Args:
+            event: Current mouse event. 当前鼠标事件。
+            selecting: Whether text is being selected. 是否正在选择文字。
+        """
+        if selecting:
+            shape = "text"
+        elif event.style.link or event.style.meta.get("atomx_activity_id"):
+            shape = "pointer"
+        elif isinstance(event.widget, (Input, TextArea)):
+            shape = "text"
+        elif isinstance(event.widget, (Button, OptionList)):
+            shape = "pointer"
+        else:
+            shape = "default"
+        set_pointer(self._driver, shape)
 
     def apply_appearance(self, preferences: dict) -> None:
         """Update widgets and cached Rich messages together. 同步 CSS 和历史消息。"""
@@ -292,11 +419,12 @@ class AtomXApp(
         )
         self.query_one("#new-session", Button).label = tr("＋ 新会话 · Ctrl+N")
         self.query_one("#settings", Button).label = tr("设置 / 调色板 · F2")
+        self.query_one("#login", Button).label = tr("登录 Codex")
         self.query_one("#search", Input).placeholder = tr(
             "⌕  搜索会话名称或工作目录…"
         )
         self.query_one(Composer).placeholder = tr(
-            "❯ 想做些什么？输入 /help 查看命令"
+            "想做些什么？输入 /help 查看命令"
         )
         self.hide_commands()
         self.transcript_cache.clear()
@@ -466,6 +594,8 @@ class AtomXApp(
                 True,
                 self.client.server_version,
                 self.size.width - 4,
+                connection_text=self.connection_text,
+                connected=self.ready,
             ),
             id="brand",
         )
@@ -476,6 +606,7 @@ class AtomXApp(
                 with Horizontal(id="home-actions"):
                     yield HomeButton(tr("＋ 新会话 · Ctrl+N"), id="new-session")
                     yield HomeButton(tr("设置 / 调色板 · F2"), id="settings")
+                    yield HomeButton(tr("登录 Codex"), id="login")
                 yield Static("", id="session-columns")
                 yield SessionList(id="sessions")
                 yield OptionList(id="home-commands", classes="command-menu")
@@ -507,7 +638,7 @@ class AtomXApp(
                     id="composer",
                     show_line_numbers=False,
                     soft_wrap=True,
-                    placeholder=tr("❯ 想做些什么？输入 /help 查看命令"),
+                    placeholder=tr("想做些什么？输入 /help 查看命令"),
                 )
                 yield Static(
                     tr(
@@ -529,6 +660,7 @@ class AtomXApp(
         self.query_one("#attachments").display = False
         self.query_one("#media-transcript").display = False
         self.query_one("#older-history").display = False
+        self.query_one("#login").display = False
         self.query_one("#sessions").focus()
         self.set_interval(0.15, self.paint)
         self.set_interval(0.35, self.advance_directory)
@@ -550,6 +682,8 @@ class AtomXApp(
                     not self.current,
                     self.client.server_version if self.ready else None,
                     self.size.width - 4,
+                    connection_text=self.connection_text,
+                    connected=self.ready,
                 )
             )
             self.paint_status()
@@ -557,6 +691,7 @@ class AtomXApp(
                 self.call_after_refresh(self.paint_sessions)
             else:
                 self.call_after_refresh(self.query_one(Composer).fit_height)
+                self.call_after_refresh(self.paint, True)
 
     def launch(self, coro: Coroutine[Any, Any, Any]) -> None:
         """Run a guarded asynchronous UI task. 启动带错误处理的异步界面任务。"""
@@ -598,6 +733,34 @@ class AtomXApp(
             if int(time.time()) != self.last_status_second:
                 self.last_status_second = int(time.time())
                 self.paint_status()
+        if self.current:
+            activity_width = self.query_one(
+                "#activities", OptionList
+            ).content_size.width
+            if activity_width != self.activity_layout_width:
+                self.activity_layout_width = activity_width
+                force = True
+            if self.screen is self.main_screen and not self.screen.selections:
+                if self.activity_arrow_started:
+                    now = time.monotonic()
+                    self.activity_arrow_started = {
+                        key: started
+                        for key, started in self.activity_arrow_started.items()
+                        if now - started < 0.24
+                    }
+                    force = True
+                session = self.store.get(self.current)
+                spinning = any(
+                    item.get("type") in COMPACT_ACTIVITY_TYPES
+                    and item.get("status") in ("inProgress", "running")
+                    for item in list(session.items.values())[
+                        -session.visible_items :
+                    ]
+                )
+                frame = int(time.monotonic() * 4) if spinning else -1
+                if frame != self.last_activity_spinner_frame:
+                    self.last_activity_spinner_frame = frame
+                    force = True
         if not self.main_screen or (
             not force and self.last_revision == self.store.revision
         ):
@@ -611,16 +774,11 @@ class AtomXApp(
                 not self.current,
                 self.client.server_version if self.ready else None,
                 self.size.width - 4,
+                connection_text=self.connection_text,
+                connected=self.ready,
             )
         )
-        self.query_one("#connection", Static).update(
-            Text(
-                self.connection_text,
-                style=self.palette.success
-                if self.ready
-                else self.palette.accent,
-            )
-        )
+        self.query_one("#connection", Static).update("")
         self.paint_status()
         if not self.current:
             self.paint_sessions()
@@ -838,6 +996,7 @@ class AtomXApp(
                     "theme",
                     "settings",
                     "palette",
+                    "login",
                 )
                 and not self.current
             ):
@@ -851,6 +1010,9 @@ class AtomXApp(
     def action_new_session(self) -> None:
         """Open the working-directory chooser for a new thread. 打开新会话目录选择。"""
         if self.screen is not self.main_screen or not self.ready:
+            return
+        if self.auth_needed:
+            self.action_login()
             return
         cwd = (
             self.store.get(self.current or "").meta.get("cwd", self.cwd)
@@ -874,6 +1036,22 @@ class AtomXApp(
     def settings_button(self) -> None:
         """Open settings from the home button. 通过首页按钮打开设置。"""
         self.action_settings()
+
+    def action_login(self) -> None:
+        """Open Codex's own browser login flow. 打开 Codex 官方浏览器登录。"""
+        if self.demo or not self.ready or self.screen is not self.main_screen:
+            return
+        self.push_screen(
+            Login(self.client),
+            lambda success: (
+                self.launch(self.after_login()) if success else None
+            ),
+        )
+
+    @on(Button.Pressed, "#login")
+    def login_button(self) -> None:
+        """Reopen login if the initial prompt was deferred. 稍后可从首页重新登录。"""
+        self.action_login()
 
     def action_refresh_sessions(self) -> None:
         """Reconnect or refresh stored threads and activity. 重连或刷新会话及活动。"""
@@ -915,10 +1093,104 @@ class AtomXApp(
         if self.screen is not self.main_screen or not self.current:
             return
         self.detail_open = not self.detail_open
+        # A panel opened during live agent work should close when work ends.
+        # 代理运行期间手动打开的面板也应在任务结束时自动收起。
+        self.activity_auto_tid = (
+            self.current
+            if self.detail_open
+            and any(
+                agent.get("status") in ("pendingInit", "running", "active")
+                for agent in self.store.get(self.current)
+                .visible_agents()
+                .values()
+            )
+            else None
+        )
+        if self.detail_open:
+            self.activity_manual_closed.pop(self.current, None)
+        else:
+            self.activity_manual_closed[self.current] = (
+                self.store.get(self.current).active_turn or ""
+            )
         panel = self.query_one("#activities", OptionList)
         panel.display = self.detail_open
         (panel if self.detail_open else self.query_one("#composer")).focus()
         self.paint(force=True)
+
+    def toggle_inline_activity(self, item_id: str) -> None:
+        """Expand or collapse an activity in the current transcript.
+
+        在当前会话正文中展开或收起一条活动。
+
+        Args:
+            item_id: Codex activity item ID. Codex 活动条目 ID。
+        """
+        if not self.current:
+            return
+        item = self.store.get(self.current).items.get(item_id)
+        if not item or item.get("type") not in COMPACT_ACTIVITY_TYPES:
+            return
+        expanded = self.expanded_activities.setdefault(self.current, set())
+        if item_id in expanded:
+            expanded.remove(item_id)
+        else:
+            expanded.add(item_id)
+        self.activity_arrow_started[(self.current, item_id)] = time.monotonic()
+        self.paint(force=True)
+
+    @on(events.Click, "#activity-summary")
+    def activity_summary_clicked(self) -> None:
+        """Open the activity list from its visible summary. 点击摘要展开活动列表。"""
+        self.action_activity()
+
+    def activity_item_details(self, item: dict) -> list[RenderableType]:
+        """Show a thread item and its available command or tool output.
+
+        展示线程条目，以及后端提供的命令或工具结果。
+
+        Args:
+            item: One Codex thread item. 一个 Codex 线程条目。
+
+        Returns:
+            Renderables for the thread detail view. 详情视图的可渲染内容。
+        """
+        summary = pretty(item, self.code_theme, self.palette)
+        parts: list[RenderableType] = [summary] if summary is not None else []
+        kind = item.get("type")
+        if kind == "commandExecution":
+            command = clean(item.get("command"))
+            output = clean(item.get("aggregatedOutput"))
+            if command:
+                parts.append(Text(command, style=self.palette.muted))
+            if output:
+                parts.append(Text(output))
+        elif kind in ("dynamicToolCall", "mcpToolCall"):
+            result = (
+                item.get("contentItems")
+                if kind == "dynamicToolCall"
+                else item.get("result")
+            )
+            result = result or item.get("error")
+            if result:
+                parts.append(
+                    Text(json.dumps(result, ensure_ascii=False, indent=2))
+                )
+        elif kind in ("webSearch", "fileChange"):
+            request = activity_request(item)
+            if request:
+                parts.append(Text(request, style=self.palette.muted))
+            result = (
+                item.get("result") or item.get("output") or item.get("error")
+            )
+            if result:
+                parts.append(
+                    Text(
+                        result
+                        if isinstance(result, str)
+                        else json.dumps(result, ensure_ascii=False, indent=2)
+                    )
+                )
+        return parts
 
     @on(OptionList.OptionSelected, "#activities")
     def show_activity(self, event: OptionList.OptionSelected) -> None:
@@ -934,26 +1206,141 @@ class AtomXApp(
 
             解析所选活动后显示详情。
             """
-            if kind == "agent":
+            if kind == "thread":
 
-                async def render_agent() -> Group:
-                    """Read a child agent transcript for its live detail view.
+                async def render_thread() -> tuple[
+                    Group, list[tuple[str, str]]
+                ]:
+                    """Read one thread's transcript and process activity.
 
-                    读取子代理记录用于详情。
+                    读取 Main 或子代理的记录和进程活动。
                     """
-                    child = await self.read_history(value)
-                    body = [
-                        pretty(i, self.code_theme, self.palette)
-                        for i in list(child.items.values())[-400:]
+                    try:
+                        thread = await self.read_history(value)
+                    except RpcError:
+                        thread = self.store.get(value)
+                    assert tid is not None
+                    root = self.store.get(tid)
+                    processes = [
+                        terminal
+                        for terminal in root.terminals
+                        if terminal.get("agentThreadId", tid) == value
                     ]
-                    return Group(*(b for b in body if b is not None))
+                    body: list[RenderableType] = [
+                        Text(
+                            ("Main" if value == tid else tr("子代理"))
+                            + "  ·  "
+                            + thread.status,
+                            style=self.palette.accent,
+                        )
+                    ]
+                    for terminal in processes:
+                        body.append(
+                            Text(
+                                "  ● "
+                                + command_summary(terminal.get("command"))
+                                + "  ·  PID "
+                                + str(
+                                    terminal.get("osPid")
+                                    or terminal["processId"]
+                                ),
+                                style=self.palette.muted,
+                            )
+                        )
+                    entries: list[tuple[str, str]] = []
+                    for item in list(thread.items.values())[-400:]:
+                        item_kind = item.get("type")
+                        if item_kind in (
+                            "commandExecution",
+                            "dynamicToolCall",
+                            "mcpToolCall",
+                            "webSearch",
+                            "fileChange",
+                        ):
+                            summary = pretty(
+                                item, self.code_theme, self.palette
+                            )
+                            if summary is not None:
+                                label = (
+                                    summary.plain
+                                    if isinstance(summary, Text)
+                                    else clean(str(summary))
+                                )
+                                entries.append((clean(item.get("id")), label))
+                        else:
+                            summary = pretty(
+                                item, self.code_theme, self.palette
+                            )
+                            if summary is not None:
+                                body.append(summary)
+                    for terminal in processes:
+                        item_id = clean(terminal.get("itemId"))
+                        if item_id and item_id in thread.items:
+                            continue
+                        entries.append(
+                            (
+                                "terminal:" + clean(terminal.get("processId")),
+                                "● " + command_summary(terminal.get("command")),
+                            )
+                        )
+                    return Group(*(b for b in body if b is not None)), entries
 
-                body = await render_agent()
+                async def open_thread_entry(item_id: str) -> None:
+                    """Open a single command or tool with its full output.
+
+                    展开单条命令或工具的完整输出。
+                    """
+                    assert tid is not None
+
+                    async def render_entry() -> Group:
+                        if item_id.startswith("terminal:"):
+                            process_id = item_id.removeprefix("terminal:")
+                            root = self.store.get(tid)
+                            terminal = next(
+                                (
+                                    terminal
+                                    for terminal in root.terminals
+                                    if clean(terminal.get("processId"))
+                                    == process_id
+                                ),
+                                {},
+                            )
+                            return Group(
+                                Text(
+                                    clean(terminal.get("command"))
+                                    + "\n\n"
+                                    + tr(
+                                        "尚无可用输出。外部启动的后台进程可能没有历史日志。"
+                                    )
+                                )
+                            )
+                        try:
+                            thread = await self.read_history(value)
+                        except RpcError:
+                            thread = self.store.get(value)
+                        item = thread.items.get(item_id, {})
+                        parts = self.activity_item_details(item)
+                        return (
+                            Group(*parts)
+                            if parts
+                            else Group(Text(tr("尚无可用输出。")))
+                        )
+
+                    self.push_screen(
+                        Detail(
+                            tr("命令输出"), await render_entry(), render_entry
+                        )
+                    )
+
+                body, entries = await render_thread()
                 self.push_screen(
-                    Detail(
-                        tr("子代理 · ") + self.store.get(value).title,
+                    ActivityDetail(
+                        ("Main · " if value == tid else tr("子代理 · "))
+                        + self.store.get(value).title,
                         body,
-                        render_agent,
+                        entries,
+                        render_thread,
+                        open_thread_entry,
                     )
                 )
             else:
@@ -965,9 +1352,20 @@ class AtomXApp(
                     """
                     assert tid is not None
                     session = self.store.get(tid)
-                    item = session.items.get(
-                        value if kind == "command" else value.get("itemId"), {}
+                    item_id = (
+                        value.get("itemId") if kind == "process" else value
                     )
+                    item = session.items.get(item_id, {})
+                    if kind == "tool":
+                        label = clean(item.get("namespace") or "")
+                        label += "/" + clean(item.get("tool"))
+                        body = item.get("contentItems") or []
+                        output = (
+                            json.dumps(body, ensure_ascii=False, indent=2)
+                            if body
+                            else tr("尚无可用输出。")
+                        )
+                        return Text(label + "\n\n" + output)
                     text = clean(
                         item.get("command")
                         or (
@@ -1004,6 +1402,8 @@ class AtomXApp(
                     "ancestorThreadId": tid,
                     "sourceKinds": [
                         "subAgent",
+                        "subAgentReview",
+                        "subAgentCompact",
                         "subAgentThreadSpawn",
                         "subAgentOther",
                     ],
@@ -1013,6 +1413,38 @@ class AtomXApp(
             ):
                 for meta in batch:
                     child = self.store.merge(meta)
+                    if child.id != tid:
+                        agent = session.agents.setdefault(
+                            child.id, {"id": child.id}
+                        )
+                        if meta.get("agentNickname"):
+                            set_agent_name(agent, meta["agentNickname"], 3)
+                        elif meta.get("agentRole"):
+                            set_agent_name(agent, meta["agentRole"], 2)
+                        else:
+                            set_agent_name(agent, child.title, 1)
+                        agent["parentId"] = parent_id(meta)
+                        runtime = (meta.get("status") or {}).get("type")
+                        agent["runtimeStatus"] = runtime
+                        if runtime == "active" and agent.get("status") not in (
+                            "completed",
+                            "errored",
+                            "shutdown",
+                            "interrupted",
+                        ):
+                            agent["status"] = "running"
+                        elif runtime == "idle" and agent.get("status") in (
+                            None,
+                            "running",
+                            "active",
+                            "pendingInit",
+                        ):
+                            agent["status"] = "idle"
+                        elif runtime == "systemError":
+                            agent["status"] = "errored"
+                        note_agent_timing(
+                            agent, timestamp_seconds(meta.get("createdAt"))
+                        )
                     latest_usage = await asyncio.to_thread(
                         rollout_usage, meta.get("path")
                     )
@@ -1020,17 +1452,34 @@ class AtomXApp(
                         child.usage = latest_usage
         except RpcError:
             pass  # Collab events still provide agent discovery on older runtimes.
-        try:
-            data = []
-            async for batch in self.client.pages(
-                "thread/backgroundTerminals/list",
-                {"threadId": tid, "limit": 100},
-            ):
-                data.extend(batch)
-            session.terminals = data
-            session.terminal_error = None
-        except RpcError as exc:
-            session.terminal_error = str(exc)
+        session.inherit_agent_turns()
+        semaphore = asyncio.Semaphore(6)
+
+        async def read_terminals(owner: str) -> tuple[list[dict], str | None]:
+            """Read processes owned by one thread. 读取指定线程的后台进程。"""
+            async with semaphore:
+                try:
+                    rows: list[dict] = []
+                    async for batch in self.client.pages(
+                        "thread/backgroundTerminals/list",
+                        {"threadId": owner, "limit": 100},
+                    ):
+                        rows.extend(
+                            dict(terminal, agentThreadId=owner)
+                            for terminal in batch
+                        )
+                    return rows, None
+                except RpcError as exc:
+                    return [], str(exc)
+
+        owners = list(dict.fromkeys((tid, *session.visible_agents())))
+        results = await asyncio.gather(
+            *(read_terminals(owner) for owner in owners)
+        )
+        session.terminals = [
+            terminal for rows, _error in results for terminal in rows
+        ]
+        session.terminal_error = results[0][1]
         self.store.revision += 1
 
     def poll_current(self) -> None:
@@ -1112,8 +1561,12 @@ class AtomXApp(
         """
         if self.screen is not self.main_screen:
             # Modals own Escape before task interruption. 弹窗优先处理 Esc。
-            if isinstance(self.screen, Settings):
+            if isinstance(
+                self.screen, (Settings, ElicitationForm, ElicitationLink)
+            ):
                 self.screen.action_cancel()
+            elif isinstance(self.screen, Login):
+                self.launch(self.screen.action_cancel())
             elif isinstance(self.screen, Approval):
                 self.screen.dismiss(False)
             else:

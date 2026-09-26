@@ -45,6 +45,14 @@ class PreferencesTests(unittest.TestCase):
         self.assertNotIn("5h:", build_status(None, {}, 80, now=1000).plain)
         self.assertIn("\n", build_status(session, limits, 40, now=1000).plain)
 
+    def test_status_shows_model_reasoning_effort(self):
+        """The model segment includes its selected effort. 模型段显示当前推理档位。"""
+        session = Session(
+            "test", meta={"model": "gpt-6-astra", "reasoningEffort": "high"}
+        )
+        status = build_status(session, {}, 120, now=1000).plain
+        self.assertIn("gpt-6-astra · high", status)
+
     def test_source_symlinks_and_explicit_mentions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

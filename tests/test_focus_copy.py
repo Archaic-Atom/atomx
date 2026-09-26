@@ -227,3 +227,77 @@ class FocusCopyTests(unittest.IsolatedAsyncioTestCase):
             await pilot.press("ctrl+c")
             await pilot.pause(.1)
             self.writer.assert_called_with("  draft  ")
+
+    async def test_drag_keeps_wrapped_layout_and_unicode_selection_stable(self) -> None:
+        """Focus must not reflow text under the mouse. 焦点变化不重排鼠标下的文字。"""
+        app = self.app()
+        async with app.run_test(size=(90, 36)) as pilot:
+            await pilot.pause(.2)
+            await pilot.press("ctrl+l", "enter")
+            await pilot.pause(.2)
+            session = app.store.get(app.current)
+            session.items.clear()
+            session.ingest({"id": "wrapped-copy", "type": "agentMessage",
+                            "text": "Mixed 中文 wrapping text " * 15 + "\n\n你好 hello END"})
+            app.paint(force=True)
+            await pilot.pause(.2)
+            transcript = app.query_one("#transcript")
+            scroll = app.query_one("#transcript-scroll")
+            for width in (90, 60):
+                app.screen.clear_selection()
+                app.focus_composer(edit=True)
+                await pilot.resize_terminal(width, 36)
+                scroll.scroll_home(animate=False, immediate=True)
+                await pilot.pause(.2)
+                before = transcript.render().plain
+                before_width = transcript.content_size.width
+                row = next(i for i, line in enumerate(before.splitlines())
+                           if "你好 hello END" in line)
+                await pilot.mouse_down(transcript, offset=(0, row))
+                await pilot.hover(transcript, offset=(10, row))
+                await pilot.mouse_up(transcript, offset=(10, row))
+                await pilot.pause(.1)
+                self.assertEqual(transcript.content_size.width, before_width)
+                self.assertEqual(transcript.render().plain, before)
+                self.assertEqual(app.screen.get_selected_text(), "你好 hello")
+                await pilot.press("ctrl+c")
+                await pilot.pause(.1)
+                self.writer.assert_called_with("你好 hello")
+
+    async def test_upward_drag_stops_at_visible_transcript_edge(self) -> None:
+        """Dragging into the title must not copy controls below the cursor.
+
+        拖入标题栏时选区停在日志顶部，不复制其他界面控件。
+        """
+        app = self.app()
+        async with app.run_test(size=(80, 30)) as pilot:
+            await pilot.pause(.2)
+            await pilot.press("ctrl+l", "enter")
+            await pilot.pause(.2)
+            session = app.store.get(app.current)
+            session.items.clear()
+            session.ingest({
+                "id": "upward-copy",
+                "type": "agentMessage",
+                "text": "\n\n".join(f"ROW {row:02d} text" for row in range(50)),
+            })
+            app.paint(force=True)
+            await pilot.pause(.2)
+            transcript = app.query_one("#transcript")
+            scroll = app.query_one("#transcript-scroll")
+            scroll.scroll_end(animate=False, immediate=True)
+            await pilot.pause(.2)
+            start_y = scroll.region.bottom - transcript.region.y - 3
+            await pilot.mouse_down(transcript, offset=(8, start_y))
+            await pilot.hover(offset=(15, 1))
+            await pilot.mouse_up(offset=(15, 1))
+            await pilot.pause(.1)
+            selected = app.screen.get_selected_text()
+            self.assertIsNotNone(selected)
+            self.assertIn("ROW 41", selected)
+            self.assertNotIn("AtomX / CODEX", selected)
+            self.assertNotIn("新会话", selected)
+            self.assertEqual(set(app.screen.selections), {transcript})
+            await pilot.press("ctrl+c")
+            await pilot.pause(.1)
+            self.writer.assert_called_with(selected)
