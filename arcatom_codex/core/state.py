@@ -230,14 +230,22 @@ class Session:
         item: dict,
         turn_id: str | None = None,
         assign_turn: bool = True,
+        reveal_new: bool = True,
     ) -> None:
         """Merge an item and reconcile locally pending prompts.
 
         合并条目并消除待确认输入重复。
+
+        Args:
+            item: Item snapshot or live update. 条目快照或实时更新。
+            turn_id: Owning turn, when known. 已知的所属回合。
+            assign_turn: Whether to update turn ownership. 是否更新回合归属。
+            reveal_new: Keep a newly appended item visible. 是否显示新追加条目。
         """
         item_id = item.get("id")
         if not item_id:
             return
+        previous_count = len(self.items)
         turn_id = self.item_turns.get(item_id) or turn_id or self.active_turn
         if turn_id:
             self.item_turns[item_id] = turn_id
@@ -256,6 +264,10 @@ class Session:
                     self.pending_messages.pop(pending_id, None)
                     break
         self.items[item_id] = dict(self.items.get(item_id, {}), **item)
+        if self.hydrated and reveal_new:
+            # Keep the visible history's start fixed as live items arrive.
+            # 实时条目追加时固定已显示历史的起点，避免旧对话被挤走。
+            self.visible_items += max(0, len(self.items) - previous_count)
         if item.get("type") == "collabAgentToolCall":
             states = item.get("agentsStates", {})
             for tid in set(item.get("receiverThreadIds", [])) | set(states):
@@ -346,7 +358,7 @@ class Store:
             )
         for turn in meta.get("turns", []):
             for item in turn.get("items", []):
-                session.ingest(item, turn.get("id"))
+                session.ingest(item, turn.get("id"), reveal_new=not history)
             session.last_turn_id = turn.get("id") or session.last_turn_id
             if turn.get("status") == "inProgress":
                 session.active_turn = turn["id"]
@@ -522,6 +534,8 @@ class Store:
         ):
             item_id = params["itemId"]
             command = method == "item/commandExecution/outputDelta"
+            if item_id not in session.items and session.hydrated:
+                session.visible_items += 1
             item = session.items.setdefault(
                 item_id,
                 {

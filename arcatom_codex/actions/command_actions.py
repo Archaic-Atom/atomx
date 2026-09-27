@@ -280,58 +280,69 @@ class CommandActions(AppActions):
         if not models:
             raise RpcError(tr("后端没有返回可选模型，请检查模型提供商配置。"))
         current = session.meta.get("model")
-        if effort_only:
-            model = next((m for m in models if m["model"] == current), None)
-            if model is None:
-                raise RpcError(
-                    tr("当前模型不在后端目录中，请先用 /model 选择模型。")
+        selected_model = current
+        while True:
+            if effort_only:
+                model = next((m for m in models if m["model"] == current), None)
+                if model is None:
+                    raise RpcError(
+                        tr("当前模型不在后端目录中，请先用 /model 选择模型。")
+                    )
+            else:
+                target = argument.strip() or await self.workspace.choose(
+                    tr("选择模型 · 当前会话"),
+                    [
+                        (
+                            m["model"],
+                            m.get("displayName", m["model"])
+                            + "  "
+                            + m.get("description", ""),
+                        )
+                        for m in models
+                    ],
+                    selected_model,
                 )
-        else:
-            target = argument.strip() or await self.workspace.choose(
-                tr("选择模型 · 当前会话"),
-                [
+                if target is None:
+                    return
+                model = next(
                     (
-                        m["model"],
-                        m.get("displayName", m["model"])
-                        + "  "
-                        + m.get("description", ""),
+                        m
+                        for m in models
+                        if m["model"] == target or m["id"] == target
+                    ),
+                    None,
+                )
+                if model is None:
+                    raise RpcError(
+                        tr("模型不在当前账户的可选目录中：") + target
                     )
-                    for m in models
-                ],
-                current,
+            efforts = model.get("supportedReasoningEfforts") or []
+            effort = (
+                session.meta.get("reasoningEffort")
+                if model["model"] == current
+                else model.get("defaultReasoningEffort")
             )
-            if target is None:
-                return
-            model = next(
-                (
-                    m
-                    for m in models
-                    if m["model"] == target or m["id"] == target
-                ),
-                None,
-            )
-            if model is None:
-                raise RpcError(tr("模型不在当前账户的可选目录中：") + target)
-        efforts = model.get("supportedReasoningEfforts") or []
-        effort = (
-            session.meta.get("reasoningEffort")
-            if model["model"] == current
-            else model.get("defaultReasoningEffort")
-        )
-        if efforts:
-            effort = await self.workspace.choose(
-                tr("推理强度 · ") + model.get("displayName", model["model"]),
-                [
-                    (
-                        e["reasoningEffort"],
-                        e["reasoningEffort"] + "  " + e.get("description", ""),
-                    )
-                    for e in efforts
-                ],
-                effort or model.get("defaultReasoningEffort"),
-            )
-            if effort is None:
-                return
+            if efforts:
+                effort = await self.workspace.choose(
+                    tr("推理强度 · ")
+                    + model.get("displayName", model["model"]),
+                    [
+                        (
+                            e["reasoningEffort"],
+                            e["reasoningEffort"]
+                            + "  "
+                            + e.get("description", ""),
+                        )
+                        for e in efforts
+                    ],
+                    effort or model.get("defaultReasoningEffort"),
+                )
+                if effort is None:
+                    if effort_only or argument.strip():
+                        return
+                    selected_model = model["model"]
+                    continue
+            break
         settings = {"model": model["model"]}
         if effort is not None:
             settings["effort"] = effort
@@ -572,7 +583,7 @@ class CommandActions(AppActions):
             await self.workspace.ensure_resumed(tid)
             if session.active_turn or tid in self.workspace.sending:
                 raise RpcError(
-                    tr("请等待当前回合结束，或按 Esc 停止后再执行。")
+                    tr("请等待当前回合结束，或按 Ctrl+G 停止后再执行。")
                 )
             review_target = (
                 {"type": "custom", "instructions": argument}
@@ -666,7 +677,7 @@ class CommandActions(AppActions):
             )
         elif name in ("archive", "delete"):
             if session.active_turn or tid in self.workspace.sending:
-                raise RpcError(tr("请先按 Esc 停止当前任务。"))
+                raise RpcError(tr("请先按 Ctrl+G 停止当前任务。"))
             await self.workspace.client.call(
                 "thread/" + name, {"threadId": tid}
             )
@@ -689,7 +700,7 @@ class CommandActions(AppActions):
             )
             await self.workspace.refresh_activity(tid)
             self.workspace.command_notice(
-                tid, tr("已停止当前会话的后台终端。Esc 可停止模型回合。")
+                tid, tr("已停止当前会话的后台终端。Ctrl+G 可停止模型回合。")
             )
         elif name == "skills":
             await self.workspace.select_skill(session)

@@ -161,7 +161,7 @@ class ViewActions(AppActions):
                 ),
                 (
                     f"  {elapsed}"
-                    + (tr(" · Esc 停止") if session.active_turn else ""),
+                    + (tr(" · Ctrl+G 停止") if session.active_turn else ""),
                     self.workspace.palette.muted,
                 ),
             )

@@ -70,6 +70,8 @@ class Settings(WorkspaceAccess, ModalScreen[dict | None]):
 
     BINDINGS = [
         Binding("escape", "cancel", tr("取消")),
+        Binding("left", "back", show=False, priority=True),
+        Binding("right", "activate", show=False, priority=True),
         Binding("ctrl+s", "save", tr("保存")),
         Binding("up", "move_setting(-1)", show=False, priority=True),
         Binding("down", "move_setting(1)", show=False, priority=True),
@@ -213,7 +215,32 @@ class Settings(WorkspaceAccess, ModalScreen[dict | None]):
         """
         if action == "move_setting":
             return not any(select.expanded for select in self.query(Select))
+        if action in ("back", "activate"):
+            directory = self.query_one("#default-cwd", DirectoryInput)
+            if directory.has_focus and directory.editing:
+                return False
+            if action == "activate":
+                return not any(select.expanded for select in self.query(Select))
         return True
+
+    def action_back(self) -> None:
+        """Adjust a switch or leave one settings layer. 调整开关或退出当前层。"""
+        if isinstance(self.focused, Switch):
+            self.focused.value = False
+            return
+        self.action_cancel()
+
+    async def action_activate(self) -> None:
+        """Use Right like Enter outside text editing. 非编辑状态下右键等同回车。"""
+        focused = self.focused
+        if isinstance(focused, Select):
+            focused.action_show_overlay()
+        elif isinstance(focused, Switch):
+            focused.value = True
+        elif isinstance(focused, DirectoryInput):
+            await focused.action_submit()
+        elif isinstance(focused, Button):
+            focused.press()
 
     def action_move_setting(self, direction: int) -> None:
         """Move focus between settings without changing values. 仅移动设置焦点。"""

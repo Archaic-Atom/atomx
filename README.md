@@ -63,7 +63,7 @@ Long conversations open immediately and load their newest 40 items in the backgr
 | Where / action | Keys |
 | --- | --- |
 | Home: start a new session | Empty search + `Enter` |
-| Home: select and resume history | Selected by default; `↑` / `↓` cycle through sessions, `Enter` opens; typing focuses search |
+| Home: select and resume history | Selected by default; `↑` / `↓` cycle through sessions, `Enter` / `→` opens; typing focuses search |
 | Choose a directory for a new session | `Ctrl+N`, `/new`, or the New session button |
 | Home: permanently delete selected history | `Ctrl+X` twice within 3 seconds; other actions cancel |
 | Editor: recall sent prompts | `↑` on the first line, then `↑` / `↓`; down past the latest restores the unsent draft |
@@ -87,7 +87,9 @@ Long conversations open immediately and load their newest 40 items in the backgr
 | Interrupt current turn | `Esc` while a turn is running; closes any open dialog first |
 | Quit | `Ctrl+Q` or `/quit` |
 
-The input is editable on entry. **Esc → browse → Esc → home** preserves your draft. PageUp/PageDown remain optional scrolling shortcuts. Tab and Shift+Tab navigate controls, including settings and dialogs. The larger home input sits below the session list. Home arrows stay in the session list and wrap at either end. The New session and Settings buttons are skipped by keyboard focus; use Ctrl+N and F2. Typing focuses the bottom search input; Ctrl+L also focuses it, and empty input + Enter creates a session. Mouse selection never copies automatically; Ctrl+C only copies and never interrupts a turn. While a task runs, Esc stops it and preserves focus and drafts; when idle, Esc leaves editing, then returns home. Open dialogs handle Esc first.
+The input is editable on entry. **Esc → browse → Esc → home** preserves your draft, including while a task runs. **Ctrl+G** stops the current task without changing focus. PageUp/PageDown remain optional scrolling shortcuts. Tab and Shift+Tab navigate controls, including settings and dialogs. The larger home input sits below the session list. Home arrows stay in the session list and wrap at either end. The New session and Settings buttons are skipped by keyboard focus; use Ctrl+N and F2. Typing focuses the bottom search input; Ctrl+L also focuses it, and empty input + Enter creates a session. Mouse selection never copies automatically; Ctrl+C only copies and never interrupts a turn.
+
+Selection lists use `↑/↓` to choose and `Enter/→` to enter. `Esc/←` returns one view at a time: `/model` goes from reasoning effort to the model list, then to chat; Settings closes an expanded choice before leaving Settings; activity details return to their parent list. In a text field, `←/→` move the caret, while `Esc` returns. Settings switches use `←` for off and `→` for on; `Esc` leaves Settings. The image gallery keeps `←/→` for previous/next images. Reaching the top of the transcript loads an earlier page automatically; new messages remain visible without displacing the part of history already loaded.
 
 The home list has separate colored **Needs your attention**, **Working**, and **History** section headings. Each session occupies one row: title and working directory, plus a reply/task preview on wider terminals. Live approval/question flags take priority. Sessions created or completed in this app, and sessions with drafts or pending images, await input. Old idle sessions remain history. Only statuses available from this app's backend can be shown; another Codex process may own work this backend cannot observe or control.
 
@@ -98,7 +100,7 @@ Codex shows `—` before a successful connection or when version metadata is una
 
 Home rows use four aligned columns: **Title / Summary / Directory / Last active**, with a 26:30:26:18 width ratio as the terminal resizes. Column labels are hidden, with a blank spacer above the groups. Times are local (`MM-DD HH:MM`); missing timestamps show `—`. The selected row’s long directory scrolls from start to end while other columns stay fixed.
 
-The composer grows with typed, pasted and wrapped lines, then shrinks when cleared. The conversation reflows with it and keeps the latest line visible when following output; browsing older messages preserves your position. `Shift+Enter` (or `Ctrl+J`) inserts a newline and moves the cursor onto it. When the draft exceeds the available terminal height, it scrolls while keeping a small part of the conversation visible.
+The composer grows with typed, pasted and wrapped lines, then shrinks when cleared. The conversation reflows with it and keeps the latest line visible when following output; browsing older messages preserves your position. The first loaded message stays in the visible history while live commands and file changes arrive; use the earlier-history button to fetch older pages. `Shift+Enter` (or `Ctrl+J`) inserts a newline and moves the cursor onto it. When the draft exceeds the available terminal height, it scrolls while keeping a small part of the conversation visible.
 
 Commands, searches, file changes and other activity appear directly below the preceding text as one collapsed `>` row, without an extra blank row. Click a row to expand only its request (the full command, search query, changed paths or tool arguments), then click its downward arrow to collapse it. The arrow turns briefly during each toggle, and a running activity has a spinning status marker. Long summaries are ellipsized. To inspect execution output or search and file-change results, press `Ctrl+T`, select the Main or subagent thread and press `Enter`, then select the activity and press `Enter` again. `Esc` returns one level at a time. Thread text is selectable for copying.
 

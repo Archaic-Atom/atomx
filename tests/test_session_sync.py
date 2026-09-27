@@ -92,6 +92,73 @@ class SessionSyncTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(calls, len([m for m, _ in client.calls if m in ("thread/read", "thread/resume", "thread/items/list")]))
             self.assertFalse(any(m == "thread/read" for m, _ in client.calls))
 
+    async def test_scrolling_to_top_loads_an_earlier_page(self) -> None:
+        """Scroll-boundary paging exposes earlier messages without a click.
+
+        滚动到顶部时自动读取更早一页，不依赖按钮。
+        """
+        client = DemoClient()
+        client.threads["demo-login"]["turns"] = [{
+            "id": "long", "status": "completed", "items": [
+                {"id": f"m{i}", "type": "agentMessage", "text": f"Message {i}"}
+                for i in range(95)
+            ],
+        }]
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await app.open_session("demo-login")
+            await pilot.pause(.2)
+            session = app.store.get("demo-login")
+            self.assertEqual(next(iter(session.items)), "m55")
+            scroll = app.query_one("#transcript-scroll")
+            self.assertGreater(scroll.max_scroll_y, 0)
+            scroll.scroll_home(animate=False, immediate=True)
+            await pilot.pause(.2)
+            self.assertEqual(next(iter(session.items)), "m15")
+
+    async def test_live_activity_does_not_push_visible_history_out(self) -> None:
+        """Keep the oldest visible message while a long turn adds tools.
+
+        长回合连续新增命令时，保留原本已显示的对话起点。
+        """
+        client = DemoClient()
+        client.threads["demo-login"]["turns"] = [{
+            "id": "long",
+            "status": "completed",
+            "items": [
+                {"id": f"m{i}", "type": "agentMessage", "text": f"Message {i}"}
+                for i in range(95)
+            ],
+        }]
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
+        async with app.run_test() as pilot:
+            await app.open_session("demo-login")
+            await pilot.pause(.2)
+            session = app.store.get("demo-login")
+            self.assertEqual(session.visible_items, 40)
+            self.assertEqual(next(iter(session.items)), "m55")
+            for index in range(60):
+                app.store.event("item/completed", {
+                    "threadId": "demo-login",
+                    "item": {
+                        "id": f"tool-{index}",
+                        "type": "commandExecution",
+                        "command": f"probe {index}",
+                    },
+                })
+            self.assertEqual(session.visible_items, 100)
+            self.assertEqual(
+                list(session.items)[-session.visible_items], "m55"
+            )
+            app.store.event("item/agentMessage/delta", {
+                "threadId": "demo-login", "itemId": "reply", "delta": "Done",
+            })
+            self.assertEqual(session.visible_items, 101)
+            app.load_older_history()
+            await pilot.pause(.2)
+            self.assertEqual(next(iter(session.items)), "m15")
+            self.assertEqual(session.visible_items, len(session.items))
+
     async def test_streamed_completion_is_not_duplicated_by_history_page(self):
         client = DelayedHistory()
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)

@@ -14,6 +14,7 @@ from textual.widgets import Input, OptionList
 
 from arcatom_codex.commands import BY_NAME, matches
 from arcatom_codex.demo import DemoClient
+from arcatom_codex.i18n import tr
 from arcatom_codex.native import native_argv, terminal_reply
 from arcatom_codex.pickers import Picker
 from arcatom_codex.rpc import RpcError
@@ -164,6 +165,10 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause(.2)
             await pilot.press("down", "enter", "escape")
             await pilot.pause(.2)
+            self.assertIsInstance(app.screen, Picker)
+            self.assertEqual(app.screen.heading, tr("选择模型 · 当前会话"))
+            await pilot.press("escape")
+            self.assertIs(app.screen, app.main_screen)
             self.assertFalse(any(m == "thread/settings/update" and "model" in p for m, p in client.calls))
             before = app.store.get(app.current).meta["model"]
             original = client.call
@@ -179,6 +184,36 @@ class CommandUiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause(.2)
             self.assertEqual(app.store.get(app.current).meta["model"], before)
             self.assertEqual(app.query_one(Composer).text, "/model demo-reasoner")
+
+    async def test_model_picker_back_and_forward_one_level_at_a_time(self) -> None:
+        """Return from effort to model, then to chat; Right selects a row.
+
+        从性能等级返回模型，再返回会话；右键进入选中项。
+        """
+        client = DemoClient()
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
+        async with app.run_test() as pilot:
+            await self.open_chat(app, pilot)
+            app.query_one(Composer).load_text("/model")
+            await pilot.press("enter")
+            await pilot.pause(.2)
+            self.assertIsInstance(app.screen, Picker)
+            self.assertEqual(app.screen.heading, tr("选择模型 · 当前会话"))
+            await pilot.press("tab", "right")
+            await pilot.pause(.2)
+            self.assertIsInstance(app.screen, Picker)
+            self.assertIn(tr("推理强度 · "), app.screen.heading)
+            await pilot.press("left")
+            await pilot.pause(.2)
+            self.assertIsInstance(app.screen, Picker)
+            self.assertEqual(app.screen.heading, tr("选择模型 · 当前会话"))
+            await pilot.press("escape")
+            await pilot.pause(.1)
+            self.assertIs(app.screen, app.main_screen)
+            self.assertFalse(any(
+                m == "thread/settings/update" and "model" in p
+                for m, p in client.calls
+            ))
 
     async def test_home_slash_creates_session_and_opens_model_picker(self):
         app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
