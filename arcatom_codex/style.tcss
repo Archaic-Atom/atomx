@@ -7,6 +7,8 @@ AtomXApp { background: $arc-background; }
 #overview { height: 1; color: $arc-accent; }
 Input { background: $arc-surface; border: tall $arc-border; color: $arc-foreground; pointer: text; }
 Input:focus { border: tall $arc-accent; }
+Input > .input--cursor { color: #202020; background: $arc-accent; text-style: none; }
+Screen:light Input > .input--cursor { color: #ffffff; }
 #search { height: 5; min-height: 5; border: round $arc-border; padding: 1 1; margin: 1 0 0 0; }
 #search:focus { border: round $arc-accent; }
 OptionList { background: $arc-background; border: none; padding: 0; pointer: pointer; }
@@ -29,6 +31,8 @@ OptionList:focus > .option-list--option-highlighted { background: $arc-selection
 #activities > .option-list--option { padding: 0 1; }
 #composer { height: 3; min-height: 3; border: round $arc-border; background: $arc-surface; color: $arc-foreground; padding: 0 1; pointer: text; }
 #composer:focus { border: round $arc-accent; }
+#composer .text-area--cursor { color: #202020; background: $arc-accent; text-style: none; }
+Screen:light #composer .text-area--cursor { color: #ffffff; }
 #chat-hint { height: 1; }
 ModalScreen { align: center middle; background: $arc-background; }
 #dialog { width: 85%; max-width: 110; height: 85%; background: $arc-surface; border: round $arc-accent; padding: 1 2; }
