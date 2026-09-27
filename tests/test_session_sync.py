@@ -4,7 +4,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from textual.widgets import Button
+
 from arcatom_codex.demo import DemoClient
+from arcatom_codex.i18n import tr
 from arcatom_codex.rpc import RpcError
 from arcatom_codex.ui import ArcatomApp, Composer, Detail
 
@@ -115,6 +118,39 @@ class SessionSyncTests(unittest.IsolatedAsyncioTestCase):
             scroll.scroll_home(animate=False, immediate=True)
             await pilot.pause(.2)
             self.assertEqual(next(iter(session.items)), "m15")
+
+    async def test_history_button_keeps_status_and_shows_earlier_items(self) -> None:
+        """Clicking history loads visibly and keeps a stable end marker.
+
+        点击加载后定位到旧记录；最后一页结束时保留完成提示。
+        """
+        client = DemoClient()
+        client.threads["demo-login"]["turns"] = [{
+            "id": "long", "status": "completed", "items": [
+                {"id": f"m{i}", "type": "agentMessage", "text": f"Message {i}"}
+                for i in range(95)
+            ],
+        }]
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await app.open_session("demo-login")
+            await pilot.pause(.2)
+            scroll = app.query_one("#transcript-scroll")
+            button = app.query_one("#older-history", Button)
+            self.assertGreater(scroll.scroll_y, 0)
+            await pilot.click("#older-history")
+            await pilot.pause(.2)
+            session = app.store.get("demo-login")
+            self.assertEqual(next(iter(session.items)), "m15")
+            self.assertEqual(scroll.scroll_y, 0)
+            self.assertTrue(button.display)
+            self.assertFalse(button.disabled)
+            await pilot.click("#older-history")
+            await pilot.pause(.2)
+            self.assertEqual(next(iter(session.items)), "m0")
+            self.assertTrue(button.display)
+            self.assertTrue(button.disabled)
+            self.assertEqual(str(button.label), tr("已到最早记录"))
 
     async def test_live_activity_does_not_push_visible_history_out(self) -> None:
         """Keep the oldest visible message while a long turn adds tools.

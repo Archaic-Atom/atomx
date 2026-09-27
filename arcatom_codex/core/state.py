@@ -119,6 +119,7 @@ class Session:
     hydrated: bool = False
     history_loading: bool = False
     history_cursor: str | None = None
+    history_reached_start: bool = False
     history_error: str = ""
     visible_items: int = 40
     resumed: bool = False

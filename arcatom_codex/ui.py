@@ -848,8 +848,15 @@ class AtomXApp(
 
     @on(Button.Pressed, "#older-history")
     def older_history_pressed(self) -> None:
-        """Request earlier messages from the history button. 通过按钮请求更早记录。"""
+        """Load earlier messages and show the newly revealed page.
+
+        加载更早的记录，并把视口移到新出现的内容。
+        """
         self.load_older_history()
+        scroll = self.query_one("#transcript-scroll", TranscriptScroll)
+        scroll.anchor(False)
+        scroll.focus()
+        scroll.scroll_home(animate=False, immediate=True)
 
     @on(Composer.Back)
     def back(self) -> None:
