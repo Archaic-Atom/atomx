@@ -162,6 +162,8 @@ class HistoryActions(AppActions):
                 # 初次加载后保留加载期间到达的实时事件及其前面的记录。
                 session.visible_items = max(40, len(session.items))
             session.history_cursor = page.get("nextCursor")
+            if older:
+                session.history_reached_start = not bool(session.history_cursor)
             session.hydrated = True
             session.history_error = ""
             if older:

@@ -13,6 +13,8 @@
   file changes arrive, instead of pushing it out of a fixed 40-item window.
 - Load an earlier history page automatically when transcript scrolling reaches
   the top. Escape always returns one view; Ctrl+G stops an active turn.
+- Keep the earlier-history control visible as a completion marker after the last
+  page, and move the viewport to newly loaded messages when it is clicked.
 
 ## 0.2.0 — 2026-09-26
 

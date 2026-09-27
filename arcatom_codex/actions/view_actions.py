@@ -344,10 +344,16 @@ class ViewActions(AppActions):
             )
             blocks = [Text(message, style=self.workspace.palette.muted)]
         older = self.workspace.query_one("#older-history", Button)
-        older.display = bool(
+        has_older = bool(
             session.history_cursor or len(session.items) > session.visible_items
         )
-        older.disabled = session.history_loading
+        older.display = has_older or session.history_reached_start
+        older.disabled = session.history_loading or not has_older
+        older.label = tr(
+            "已到最早记录"
+            if session.history_reached_start and not has_older
+            else "加载更早记录 · 滚动到顶部"
+        )
         transcript_signature = (
             session.id,
             signatures,
