@@ -6,6 +6,13 @@
   light terminal themes after the Textual 8 upgrade.
 - Treat Enter events carrying committed IME text as text input, so confirming
   Latin or Chinese composition does not submit the chat or open a home result.
+- Make selection-list navigation consistent: Right enters the selected item;
+  Escape or Left backs out of model and settings choices one level at a time,
+  while arrow keys still move the caret in editable fields.
+- Keep the visible transcript's starting message stable as live commands and
+  file changes arrive, instead of pushing it out of a fixed 40-item window.
+- Load an earlier history page automatically when transcript scrolling reaches
+  the top. Escape always returns one view; Ctrl+G stops an active turn.
 
 ## 0.2.0 — 2026-09-26
 

@@ -89,6 +89,82 @@ class WorkspaceUiTests(unittest.IsolatedAsyncioTestCase):
         self.copy_writer = clipboard.start()
         self.addCleanup(clipboard.stop)
 
+    async def test_home_right_opens_selected_session(self) -> None:
+        """Use Right to enter the highlighted home row.
+
+        首页右键进入当前选中的会话。
+        """
+        app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
+        async with app.run_test() as pilot:
+            await pilot.pause(.2)
+            sessions = app.query_one("#sessions", OptionList)
+            selected = sessions.get_option_at_index(sessions.highlighted).id
+            await pilot.press("right")
+            await pilot.pause(.2)
+            self.assertEqual(app.current, selected)
+
+    async def test_settings_back_respects_dropdown_and_text_editing(self) -> None:
+        """Back closes one settings layer without stealing text cursor keys.
+
+        返回先收起下拉框；编辑目录时左右键仍移动光标。
+        """
+        app = ArcatomApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
+        async with app.run_test() as pilot:
+            await pilot.pause(.2)
+            await pilot.press("f2")
+            settings = app.screen
+            self.assertIsInstance(settings, Settings)
+            language = settings.query_one("#language", Select)
+            await pilot.press("right")
+            self.assertTrue(language.expanded)
+            await pilot.press("left")
+            self.assertFalse(language.expanded)
+            self.assertIs(app.screen, settings)
+            switch = settings.query_one("#follow-output", Switch)
+            switch.focus()
+            await pilot.press("right")
+            self.assertTrue(switch.value)
+            await pilot.press("left")
+            self.assertFalse(switch.value)
+            self.assertIs(app.screen, settings)
+            directory = settings.query_one("#default-cwd", Input)
+            directory.focus()
+            await pilot.press("right")
+            self.assertTrue(directory.editing)
+            directory.value = "abcd"
+            directory.cursor_position = 4
+            await pilot.press("left")
+            self.assertEqual(directory.cursor_position, 3)
+            self.assertIs(app.screen, settings)
+            await pilot.press("escape")
+            self.assertFalse(directory.editing)
+            self.assertIs(app.screen, settings)
+            await pilot.press("left")
+            self.assertIs(app.screen, app.main_screen)
+
+    async def test_activity_back_precedes_active_turn_interrupt(self) -> None:
+        """Close the activity layer before interpreting Escape as Stop.
+
+        代理面板打开时先返回面板，不把 Esc 误当停止任务。
+        """
+        client = DemoClient()
+        app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
+        async with app.run_test() as pilot:
+            await pilot.pause(.2)
+            await pilot.press("enter")
+            await pilot.pause(.2)
+            app.store.get(app.current).active_turn = "active-turn"
+            await pilot.press("ctrl+t")
+            self.assertTrue(app.detail_open)
+            await pilot.press("escape")
+            self.assertFalse(app.detail_open)
+            self.assertFalse(any(m == "turn/interrupt" for m, _ in client.calls))
+            await pilot.press("ctrl+t")
+            self.assertTrue(app.detail_open)
+            await pilot.press("left")
+            self.assertFalse(app.detail_open)
+            self.assertFalse(any(m == "turn/interrupt" for m, _ in client.calls))
+
     async def test_escape_browse_double_arrows_and_enter_to_edit_without_sending(self):
         client = DemoClient()
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)

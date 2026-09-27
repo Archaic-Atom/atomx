@@ -20,7 +20,7 @@ from .backend.demo import DemoClient
 from .backend.rpc import CodexClient, RpcError
 from .core.state import clean
 from .i18n import tr
-from .widgets import SelectableTranscript
+from .widgets import ForwardOptionList, SelectableTranscript
 
 
 class Detail(ModalScreen):
@@ -121,7 +121,7 @@ class ActivityDetail(Detail):
             yield Static(
                 tr("命令与工具 · Enter 展开"), id="activity-entry-title"
             )
-            yield OptionList(
+            yield ForwardOptionList(
                 *(Option(label, id=key) for key, label in self.entries),
                 id="activity-entries",
             )
@@ -455,7 +455,7 @@ class Question(ModalScreen[str | None]):
                 choices.append(
                     Option(Text(clean(label + "  " + description)), id=label)
                 )
-            yield OptionList(*choices, id="answers")
+            yield ForwardOptionList(*choices, id="answers")
             yield Input(
                 placeholder=tr("也可以输入你的回答，再按 Enter"),
                 id="custom-answer",

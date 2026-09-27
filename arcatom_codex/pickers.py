@@ -5,12 +5,14 @@ from __future__ import annotations
 from rich.text import Text
 from textual import events, on
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Input, OptionList, Static
+from textual.widgets import Button, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
 from .i18n import tr
+from .widgets import ForwardOptionList
 
 
 class PickerSearch(Input):
@@ -37,7 +39,10 @@ class PickerSearch(Input):
 class Picker(ModalScreen[str | None]):
     """Filter choices and return a selected identifier. 筛选选项并返回选中的标识。"""
 
-    BINDINGS = [("escape", "cancel", tr("取消"))]
+    BINDINGS = [
+        Binding("escape", "cancel", tr("返回")),
+        Binding("left", "back", show=False, priority=True),
+    ]
 
     def __init__(
         self,
@@ -54,10 +59,13 @@ class Picker(ModalScreen[str | None]):
         with Vertical(id="dialog"):
             yield Static(Text(self.heading), id="dialog-title")
             yield PickerSearch(
-                placeholder=tr("输入筛选 · ↑↓ 选择 · Enter 确认 · Esc 取消"),
+                placeholder=tr(
+                    "输入筛选 · ↑↓ 选择 · Enter/→ 确认 · Esc/← 返回"
+                ),
                 id="picker-search",
             )
-            yield OptionList(id="choices")
+            yield ForwardOptionList(id="choices")
+            yield Button(tr("返回 · Esc/←"), id="picker-back")
 
     def on_mount(self) -> None:
         """Initialize controls after mounting. 挂载后初始化控件。"""
@@ -106,9 +114,29 @@ class Picker(ModalScreen[str | None]):
         """Return the selected option identifier. 返回所选选项的标识。"""
         self.dismiss(event.option.id)
 
+    @on(Button.Pressed, "#picker-back")
+    def back_button(self) -> None:
+        """Return through the same path as Escape. 按钮沿用 Esc 的逐层返回。"""
+        self.action_cancel()
+
     def action_cancel(self) -> None:
         """Return to the previous interaction level. 返回上一交互层级。"""
         self.dismiss(None)
+
+    def check_action(
+        self, action: str, parameters: tuple[object, ...]
+    ) -> bool | None:
+        """Keep Left available for moving within a nonempty search.
+
+        搜索框有文字且光标未到开头时，左键先移动光标。
+        """
+        if action == "back" and isinstance(self.focused, PickerSearch):
+            return not (self.focused.value and self.focused.cursor_position > 0)
+        return True
+
+    def action_back(self) -> None:
+        """Leave this picker by one level. 从当前选择层返回一级。"""
+        self.action_cancel()
 
 
 class Prompt(ModalScreen[str | None]):
