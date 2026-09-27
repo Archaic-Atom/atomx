@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atomx-codex"
-version = "0.2.0"
+version = "0.2.1"
 description = "A keyboard-first terminal workspace for local Codex sessions"
 readme = "README.md"
 license = "MIT"
