@@ -125,6 +125,18 @@ class Composer(WorkspaceAccess, TextArea):
             event.stop()
             event.prevent_default()
             return
+        if event.key == "enter" and event.is_printable:
+            # IME confirmation may arrive as Enter with committed text.
+            # 输入法确认可能是带有已确认文字的 Enter，不能将其当作发送。
+            event.stop()
+            event.prevent_default()
+            assert event.character is not None
+            self.replace(
+                event.character,
+                *self.selection,
+                maintain_selection_offset=False,
+            )
+            return
         if self.workspace.command_key(event.key, self):
             event.stop()
             event.prevent_default()
@@ -240,7 +252,9 @@ class SessionSearch(WorkspaceAccess, Input):
 
         先处理应用按键。
         """
-        if self.workspace.command_key(event.key, self):
+        if not (
+            event.key == "enter" and event.is_printable
+        ) and self.workspace.command_key(event.key, self):
             event.stop()
             event.prevent_default()
             return

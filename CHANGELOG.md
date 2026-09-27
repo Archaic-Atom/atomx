@@ -4,6 +4,8 @@
 
 - Restore a visible blinking cursor in chat and text inputs across dark and
   light terminal themes after the Textual 8 upgrade.
+- Treat Enter events carrying committed IME text as text input, so confirming
+  Latin or Chinese composition does not submit the chat or open a home result.
 
 ## 0.2.0 — 2026-09-26
 
