@@ -23,7 +23,9 @@ class Navigation(AppActions):
             self.workspace.store.get(self.workspace.current).active_turn
             or self.workspace.current in self.workspace.sending
         ):
-            hint = tr("Esc 停止任务 · Ctrl+C 复制 · Ctrl+T 代理与进程")
+            hint = tr(
+                "Esc 返回 · Ctrl+G 停止任务 · Ctrl+C 复制 · Ctrl+T 代理与进程"
+            )
         elif not composer.read_only:
             hint = tr(
                 "编辑 · Esc 浏览 · Ctrl+J 换行 · F3 复制 · F5 回答 · F7 图片 · F2 设置"

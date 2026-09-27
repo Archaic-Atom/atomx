@@ -80,6 +80,7 @@ from .terminal.keyboard import (
 )
 from .terminal.mouse_pointer import pointer_driver, set_pointer
 from .widgets import Composer as Composer
+from .widgets import ForwardOptionList as ForwardOptionList
 from .widgets import HomeButton as HomeButton
 from .widgets import SelectableTranscript as SelectableTranscript
 from .widgets import SessionList as SessionList
@@ -130,6 +131,7 @@ class AtomXApp(
         Binding("ctrl+c", "copy_selection", tr("复制"), priority=True),
         Binding("ctrl+x", "delete_session", tr("删除会话"), priority=True),
         Binding("escape", "escape", tr("返回"), priority=True),
+        Binding("ctrl+g", "interrupt", tr("停止任务"), priority=True),
     ]
 
     def __init__(
@@ -237,6 +239,23 @@ class AtomXApp(
             event.stop()
             event.prevent_default()
             return
+        if (
+            isinstance(event, events.Key)
+            and event.key == "left"
+            and self.main_screen is not None
+            and self.screen is self.main_screen
+        ):
+            focused_id = self.screen.focused.id if self.screen.focused else None
+            if focused_id == "activities" and self.detail_open:
+                event.stop()
+                event.prevent_default()
+                self.action_activity()
+                return
+            if focused_id in ("slash-commands", "home-commands"):
+                event.stop()
+                event.prevent_default()
+                self.hide_commands()
+                return
         if (
             isinstance(event, events.InputEvent)
             and not event.is_forwarded
@@ -609,7 +628,9 @@ class AtomXApp(
                     yield HomeButton(tr("登录 Codex"), id="login")
                 yield Static("", id="session-columns")
                 yield SessionList(id="sessions")
-                yield OptionList(id="home-commands", classes="command-menu")
+                yield ForwardOptionList(
+                    id="home-commands", classes="command-menu"
+                )
                 yield SessionSearch(
                     placeholder=tr("⌕  搜索会话名称或工作目录…"), id="search"
                 )
@@ -623,7 +644,9 @@ class AtomXApp(
             with Vertical(id="chat"):
                 yield Static("", id="chat-title", markup=False)
                 yield Static("", id="chat-path", markup=False, classes="muted")
-                yield Button(tr("加载更早记录 · 顶部按 ↑"), id="older-history")
+                yield Button(
+                    tr("加载更早记录 · 滚动到顶部"), id="older-history"
+                )
                 with TranscriptScroll(id="transcript-scroll"):
                     yield SelectableTranscript(
                         "", id="transcript", markup=False
@@ -631,8 +654,10 @@ class AtomXApp(
                     yield MediaTranscript(id="media-transcript")
                 yield Static("", id="waiting", markup=False)
                 yield Static("", id="activity-summary", markup=False)
-                yield OptionList(id="activities")
-                yield OptionList(id="slash-commands", classes="command-menu")
+                yield ForwardOptionList(id="activities")
+                yield ForwardOptionList(
+                    id="slash-commands", classes="command-menu"
+                )
                 yield Static("", id="attachments", markup=False)
                 yield Composer(
                     id="composer",
@@ -1555,12 +1580,12 @@ class AtomXApp(
         self.push_screen(Detail(tr("用量概览"), Text(clean("\n".join(lines)))))
 
     def action_escape(self) -> None:
-        """Dismiss overlays, stop work, browse or return home in order.
+        """Return one layer without interrupting the active turn.
 
-        按层级处理取消、停止与返回。
+        只逐层返回；停止任务由 Ctrl+G 单独负责。
         """
         if self.screen is not self.main_screen:
-            # Modals own Escape before task interruption. 弹窗优先处理 Esc。
+            # Return through modal layers first. 先逐层退出弹窗。
             if isinstance(
                 self.screen, (Settings, ElicitationForm, ElicitationLink)
             ):
@@ -1571,26 +1596,20 @@ class AtomXApp(
                 self.screen.dismiss(False)
             else:
                 self.screen.dismiss(None)
-        elif self.current and (
-            self.store.get(self.current or "").active_turn
-            or self.current in self.sending
-            or self.current in self.stop_requested
-            or self.store.get(self.current or "")
-            .meta.get("status", {})
-            .get("type")
-            == "active"
-        ):
-            self.action_interrupt()
         elif self.command_matches:
             self.hide_commands()
+        elif (
+            self.current
+            and self.detail_open
+            and self.query_one("#activities").has_focus
+        ):
+            self.action_activity()
         elif self.current:
             if (
                 self.query_one(Composer).has_focus
                 and not self.query_one(Composer).read_only
             ):
                 self.leave_composer()
-            elif self.detail_open and self.query_one("#activities").has_focus:
-                self.action_activity()
             else:
                 self.show_home()
         elif self.query_one("#search").has_focus:
@@ -1598,9 +1617,16 @@ class AtomXApp(
 
     def action_interrupt(self) -> None:
         """Stop the current turn without changing focus. 停止任务并保留当前焦点。"""
-        if self.screen is not self.main_screen or not self.current:
+        if not self.current:
             return
         tid = self.current
+        session = self.store.get(tid)
+        if tid in self.stop_requested or not (
+            session.active_turn
+            or tid in self.sending
+            or session.meta.get("status", {}).get("type") == "active"
+        ):
+            return
         self.stop_requested.add(tid)
         self.launch(self.interrupt_turn(tid))
 

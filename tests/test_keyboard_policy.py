@@ -91,6 +91,47 @@ class KeyboardPolicyTests(unittest.TestCase):
 
 
 class KeyboardUiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_ime_enter_in_home_search_keeps_text(self) -> None:
+        """Do not open a session while confirming text in home search.
+
+        首页搜索确认输入法文字时不打开会话。
+        """
+        app = AtomXApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
+        async with app.run_test() as pilot:
+            await pilot.pause(.2)
+            app.post_message(next(iter(XTermParser().feed("\x1b[13;1;97u"))))
+            await pilot.pause(.1)
+            self.assertEqual(app.query_one("#search").value, "a")
+            self.assertIsNone(app.current)
+
+    async def test_ime_enter_with_committed_text_does_not_submit(self) -> None:
+        """Keep IME text from Enter and submit only on a plain Enter.
+
+        保留输入法随 Enter 确认的文字，仅普通 Enter 才发送。
+        """
+        client = DemoClient()
+        app = AtomXApp(tempfile.gettempdir(), client=client, demo=True)
+        async with app.run_test() as pilot:
+            await app.open_session("demo-dashboard")
+            await pilot.pause(.2)
+            composer = app.query_one(Composer)
+            composer.load_text("开始 ")
+            composer.move_cursor(composer.document.end)
+            app.leave_composer()
+            # Kitty's associated text can mark every committed letter as Enter.
+            # Kitty 附带文字时，输入法确认的每个字母仍可能标记为 Enter。
+            for event in XTermParser().feed("\x1b[13;1;97:98:99u"):
+                app.post_message(event)
+            app.post_message(next(iter(XTermParser().feed("\x1b[13;1;20013u"))))
+            await pilot.pause(.2)
+            self.assertEqual(composer.text, "开始 abc中")
+            self.assertFalse(any(method == "turn/start" for method, _ in client.calls))
+            await pilot.press("enter")
+            await pilot.pause(.2)
+            sent = [params for method, params in client.calls if method == "turn/start"]
+            self.assertEqual([params["input"][0]["text"] for params in sent],
+                             ["开始 abc中"])
+
     async def test_reserved_arrow_does_not_move_cursor_or_change_focus(self):
         app = AtomXApp(tempfile.gettempdir(), client=DemoClient(), demo=True)
         async with app.run_test() as pilot:

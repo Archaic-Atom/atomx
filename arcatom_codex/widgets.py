@@ -125,6 +125,18 @@ class Composer(WorkspaceAccess, TextArea):
             event.stop()
             event.prevent_default()
             return
+        if event.key == "enter" and event.is_printable:
+            # IME confirmation may arrive as Enter with committed text.
+            # 输入法确认可能是带有已确认文字的 Enter，不能将其当作发送。
+            event.stop()
+            event.prevent_default()
+            assert event.character is not None
+            self.replace(
+                event.character,
+                *self.selection,
+                maintain_selection_offset=False,
+            )
+            return
         if self.workspace.command_key(event.key, self):
             event.stop()
             event.prevent_default()
@@ -240,7 +252,9 @@ class SessionSearch(WorkspaceAccess, Input):
 
         先处理应用按键。
         """
-        if self.workspace.command_key(event.key, self):
+        if not (
+            event.key == "enter" and event.is_printable
+        ) and self.workspace.command_key(event.key, self):
             event.stop()
             event.prevent_default()
             return
@@ -268,7 +282,16 @@ class HomeButton(WorkspaceAccess, Button, can_focus=False):
         self.workspace.move_home_focus(direction)
 
 
-class SessionList(WorkspaceAccess, OptionList):
+class ForwardOptionList(OptionList):
+    """Let Right activate the selected row, like Enter.
+
+    在列表中用右方向键和回车一样进入当前选项。
+    """
+
+    BINDINGS = [Binding("right", "select", show=False)]
+
+
+class SessionList(WorkspaceAccess, ForwardOptionList):
     """The highlighted row belongs only to the focused list.
 
     仅在列表有焦点时显示当前高亮行。
@@ -482,6 +505,19 @@ class SelectableTranscript(WorkspaceAccess, Static):
 
 class TranscriptScroll(WorkspaceAccess, VerticalScroll):
     """Arrow navigation returns naturally to the composer. 方向键浏览后返回输入。"""
+
+    def watch_scroll_y(self, old_value: float, new_value: float) -> None:
+        """Fetch one earlier page when scrolling reaches the top.
+
+        滚动到顶部时按需加载一页更早的记录。
+
+        Args:
+            old_value: Previous vertical offset. 原来的纵向偏移。
+            new_value: Current vertical offset. 当前纵向偏移。
+        """
+        super().watch_scroll_y(old_value, new_value)
+        if old_value > 0 and new_value <= 0 and self.workspace.current:
+            self.workspace.load_older_history()
 
     @property
     def is_vertical_scroll_end(self) -> bool:

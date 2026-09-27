@@ -138,7 +138,12 @@ class HistoryActions(AppActions):
                         incoming
                     ):
                         item = {**item, "text": previous}
-                session.ingest(item, entry.get("turnId"), assign_turn=not older)
+                session.ingest(
+                    item,
+                    entry.get("turnId"),
+                    assign_turn=not older,
+                    reveal_new=False,
+                )
                 ordered[item["id"]] = session.items[item["id"]]
             if not older and session.hydrated:
                 # Reconnect reloads a fresh tail; do not interleave cached old pages.
@@ -150,9 +155,12 @@ class HistoryActions(AppActions):
                     or key in session.pending_messages
                 }
                 session.items = {**ordered, **live}
-                session.visible_items = 40
             else:
                 session.items = {**ordered, **session.items}
+            if not older:
+                # Show the fetched tail plus every event received during loading.
+                # 初次加载后保留加载期间到达的实时事件及其前面的记录。
+                session.visible_items = max(40, len(session.items))
             session.history_cursor = page.get("nextCursor")
             session.hydrated = True
             session.history_error = ""

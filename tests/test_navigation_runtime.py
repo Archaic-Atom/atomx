@@ -63,7 +63,7 @@ class NavigationRuntimeTests(unittest.IsolatedAsyncioTestCase):
         app.session_highlighted()
         self.assertEqual((app.marquee_tid, app.marquee_step, app.delete_confirmation), previous)
 
-    async def test_escape_closes_settings_then_interrupts_then_navigates(self):
+    async def test_escape_navigates_and_ctrl_g_interrupts(self):
         client = DemoClient()
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
@@ -83,19 +83,19 @@ class NavigationRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIs(app.screen, app.main_screen)
             self.assertFalse(any(m == "turn/interrupt" for m, _ in client.calls))
             await pilot.press("escape")
+            self.assertTrue(app.query_one("#transcript-scroll").has_focus)
+            self.assertFalse(any(m == "turn/interrupt" for m, _ in client.calls))
+            await pilot.press("ctrl+g")
             await pilot.pause(.2)
             stops = [p for m, p in client.calls if m == "turn/interrupt"]
             self.assertEqual(stops, [{"threadId": session.id, "turnId": "running"}])
             self.assertEqual(app.current, session.id)
-            self.assertTrue(composer.has_focus)
             self.assertEqual(composer.text, "unsent draft")
-            await pilot.press("escape")
-            self.assertTrue(app.query_one("#transcript-scroll").has_focus)
             await pilot.press("escape")
             self.assertIsNone(app.current)
             self.assertTrue(app.query_one("#sessions").has_focus)
 
-    async def test_escape_while_turn_start_is_in_flight_stops_on_started_event(self):
+    async def test_ctrl_g_while_turn_start_is_in_flight_stops_on_started_event(self):
         client = DelayedStart()
         app = ArcatomApp(tempfile.gettempdir(), client=client, demo=True)
         async with app.run_test() as pilot:
@@ -104,7 +104,7 @@ class NavigationRuntimeTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause(.2)
             await pilot.press("g", "o", "enter")
             await asyncio.wait_for(client.entered.wait(), 2)
-            await pilot.press("escape", "escape")
+            await pilot.press("ctrl+g")
             self.assertEqual(app.current, "demo-dashboard")
             client.release.set()
             await pilot.pause(.3)
